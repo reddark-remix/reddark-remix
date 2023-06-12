@@ -1,5 +1,5 @@
 use std::num::NonZeroU32;
-use tracing::info;
+use tracing::{error, info};
 use crate::Cli;
 use crate::reddit::{Reddit, SubredditDelta, SubredditState};
 use crate::redis_helper::RedisHelper;
@@ -9,12 +9,15 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32) -> anyhow::Result<()> {
     let redis_helper = RedisHelper::new(cli).await?;
 
     {
+        let start = std::time::Instant::now();
         let redis_subreddits = redis_helper.get_current_state().await?;
 
         // Spawn out all the subreddits.
         let fns = redis_subreddits.into_iter().map(|subreddit| {
             let reddit = reddit.clone();
             let redis_helper = redis_helper.clone();
+
+            let name = subreddit.name.clone();
 
             let f = async move {
                 info!("Updating subreddit {}...", subreddit.name);
@@ -37,13 +40,20 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32) -> anyhow::Result<()> {
                 anyhow::Ok(())
             };
 
-            tokio::spawn(f)
+            (name, tokio::spawn(f))
         }).collect::<Vec<_>>();
 
         // Wait for parallel work to finish.
-        for h in fns {
-            h.await??;
+        for (n, h) in fns {
+            let result = h.await?;
+            if let Err(e) = result {
+                error!("Failed to update sub {n}: {e}");
+            }
         }
+
+        let stop = std::time::Instant::now();
+        let taken = stop.duration_since(start);
+        info!("Done! Update took {} seconds.", taken.as_secs_f32());
     }
 
     Ok(())
