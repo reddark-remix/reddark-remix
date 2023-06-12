@@ -108,7 +108,9 @@ function updateSubreddit(data, section, _new = false) {
             }, ["n" + section_basename])
             audioSystem.play("privated")
         }
-        document.getElementById(data.name).classList.add("subreddit-private");
+        if (document.getElementById(data.name) != null) {
+            document.getElementById(data.name).classList.add("subreddit-private");
+        }
     } else {
         if (_new) {
             var text = "<strong>" + data.name + "</strong> has gone public. (" + section + ")";
@@ -117,10 +119,14 @@ function updateSubreddit(data, section, _new = false) {
             })
             audioSystem.play("public")
         }
-        document.getElementById(data.name).classList.remove("subreddit-private");
+        if (document.getElementById(data.name) != null) {
+            document.getElementById(data.name).classList.remove("subreddit-private");
+        }
     }
     updateStatusText();
-    document.getElementById(data.name).querySelector("p").innerHTML = data.status;
+    if (document.getElementById(data.name) != null) {
+        document.getElementById(data.name).querySelector("p").innerHTML = data.status;
+    }
 
     if (_new) {
         var history_item = Object.assign(document.createElement("div"), { className: "history-item n" + section_basename });
