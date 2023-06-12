@@ -1,12 +1,6 @@
 FROM rust:1.70-bookworm as builder
-WORKDIR /app/src/
-RUN USER=root cargo new --bin reddark-remix
-COPY Cargo.toml Cargo.lock ./reddark-remix/
-
 WORKDIR /app/src/reddark-remix/
-RUN cargo build --release
-
-COPY ./src ./src
+COPY ./ ./
 RUN cargo build --release
 
 FROM debian:bookworm

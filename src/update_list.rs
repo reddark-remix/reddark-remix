@@ -3,33 +3,37 @@ use std::time::Duration;
 use crate::reddit::Reddit;
 use anyhow::Result;
 use tracing::info;
-use redis::AsyncCommands;
 use crate::Cli;
+use crate::redis_helper::RedisHelper;
 
 pub async fn update_list(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU32>) -> Result<()> {
     let reddit = Reddit::new(rate_limit);
-    let con = cli.new_redis_connection().await?;
+    let redis_helper = RedisHelper::new(cli).await?;
 
     let mut timer = period.map(|p| tokio::time::interval(Duration::from_secs(p.get() as u64)));
 
     loop {
-        let mut con = con.lock().await;
         info!("Fetching subreddits...");
         let (sections, subs) = reddit.fetch_subreddits().await?;
+        let existing_subs = redis_helper.get_current_state().await?;
 
-        {
-            let val = serde_json::to_string(&sections)?;
-            con.set("sections", val).await?;
-        }
+        redis_helper.set_sections(sections).await?;
 
         for sub in subs {
-            let e: bool = con.hexists("subreddit", sub.safe_name()).await?;
-            if !e {
+            let existing = existing_subs.iter().find(|s| s.name == sub.name);
+
+            if let Some(existing) = existing {
+                if existing.section != sub.section {
+                    info!("Subreddit {} already exists! Updating section to {}...", sub.name, sub.section);
+                    let mut new = existing.clone();
+                    new.section = sub.section.clone();
+                    redis_helper.update_subreddit(&new).await?;
+                } else {
+                    info!("Subreddit {} already exists!", sub.name);
+                }
+            }  else {
                 info!("Adding subreddit {}...", sub.name);
-                let val = serde_json::to_string(&sub)?;
-                con.hset("subreddit", sub.safe_name(), val).await?;
-            } else {
-                info!("Subreddit {} already exists!", sub.name);
+                redis_helper.update_subreddit(&sub).await?;
             }
         }
         info!("Done!");

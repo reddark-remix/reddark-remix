@@ -44,11 +44,13 @@ var sectionList = [
 ];
 
 socket.on("sections", (data) => {
+    console.log("SECTIONS", data);
     sectionList = JSON.parse(data);
 })
 
 var loaded = false;
 socket.on("subreddits", (data) => {
+    console.log("SUBREDDITS", data);
     loaded = false;
     document.getElementById("list").innerHTML = "Loading...";
     fillSubredditsList(data);
@@ -183,7 +185,7 @@ function fillSubredditsList(data) {
         subs.sort((a, b) => (a.name.toUpperCase() > b.name.toUpperCase()) ? 1 : -1)
         for (var subreddit of subs) {
             amount++;
-            if (subreddit.status == "private" || subreddit.status == "restricted") {
+            if (!(subreddit.status == "public" || subreddit.status == "unknown")) {
                 dark++;
             }
             sectionGrid.appendChild(genItem(subreddit.name, subreddit.status));
