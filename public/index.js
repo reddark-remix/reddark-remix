@@ -23,6 +23,21 @@ var subreddits = {};
 var amount = 0;
 var dark = 0;
 
+var sectionList = [
+    "40+ million",
+    "30+ million",
+    "20+ million",
+    "10+ million",
+    "5+ million",
+    "1+ million",
+    "500k+",
+    "250k+",
+    "100k+",
+    "50k+",
+    "5k+",
+    "5k and below"
+];
+
 var loaded = false;
 socket.on("subreddits", (data) => {
     loaded = false;
@@ -50,12 +65,16 @@ socket.on("updatenew", (data) => {
         dark--;
     }
     var _section = "";
-    for (var section in subreddits) {
-        for (var subreddit of subreddits[section]) {
+    for (var section of sectionList) {
+      if (section in subreddits) {
+        var subs = subreddits[section]
+        subs.sort((a, b) => (a.name.toUpperCase() > b.name.toUpperCase()) ? 1 : -1)
+        for (var subreddit of subs) {
             if (subreddit.name == data.name) {
                 _section = section.replace(":", "");
             }
         }
+      }
     }
     updateSubreddit(data, _section, true);
 })
@@ -132,10 +151,13 @@ function fillSubredditsList(data) {
     amount = 0;
     document.getElementById("list").innerHTML = "";
     subreddits = data;
-    for (var section in data) {
+    for (var section of sectionList) {
+      if (section in data) {
         if (section != "") document.getElementById("list").innerHTML += "<h1>" + section + "</h1>";
         var sectionGrid = Object.assign(document.createElement("div"), { "classList": "section-grid" })
-        for (var subreddit of data[section]) {
+        var subs = data[section]
+        subs.sort((a, b) => (a.name.toUpperCase() > b.name.toUpperCase()) ? 1 : -1)
+        for (var subreddit of subs) {
             amount++;
             if (subreddit.status == "private") {
                 dark++;
@@ -143,6 +165,7 @@ function fillSubredditsList(data) {
             sectionGrid.appendChild(genItem(subreddit.name, subreddit.status));
         }
         document.getElementById("list").appendChild(sectionGrid);
+      }
     }
     loaded = true;
     updateStatusText();
