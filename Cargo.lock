@@ -990,7 +990,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "reddark"
+name = "reddark-remix"
 version = "0.1.0"
 dependencies = [
  "anyhow",

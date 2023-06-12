@@ -13,6 +13,7 @@ pub enum SubredditState {
     UNKNOWN,
     PRIVATE,
     PUBLIC,
+    RESTRICTED,
 }
 
 impl SubredditState {
@@ -21,6 +22,7 @@ impl SubredditState {
             SubredditState::UNKNOWN => "public".to_string(),
             SubredditState::PRIVATE => "private".to_string(),
             SubredditState::PUBLIC => "public".to_string(),
+            SubredditState::RESTRICTED => "restricted".to_string(),
         }
     }
 }
@@ -84,15 +86,32 @@ impl Reddit {
         }
     }
 
-    pub async fn is_subreddit_private(&self, name: &str) -> Result<bool> {
-        let u = format!("{}.json", name);
+    pub async fn get_subreddit_state(&self, name: &str) -> Result<SubredditState> {
+        let u = format!("{}/about.json", name);
         let resp = self.make_request(&u).await?;
         let data: serde_json::Value = resp.json().await?;
         if let Some(reason) = data.get("reason") {
             let is_private = reason.as_str().unwrap_or("") == "private" || reason.as_str().unwrap_or("") == "banned";
-            Ok(is_private)
+            if is_private {
+                Ok(SubredditState::PRIVATE)
+            } else {
+                Ok(SubredditState::PUBLIC)
+            }
         } else {
-            Ok(false)
+            if let Some(data) = data.get("data") {
+                if let Some(tp) = data.get("subreddit_type") {
+                    let tp = tp.as_str().unwrap_or("");
+                    if tp.to_uppercase() == "restricted".to_uppercase() {
+                        Ok(SubredditState::RESTRICTED)
+                    } else {
+                        Ok(SubredditState::PUBLIC)
+                    }
+                } else {
+                    Ok(SubredditState::PUBLIC)
+                }
+            } else {
+                Ok(SubredditState::UNKNOWN)
+            }
         }
     }
 

@@ -57,7 +57,7 @@ socket.on('disconnect', function () {
     loaded = false;
 });
 socket.on("updatenew", (data) => {
-    if (data.status == "private") {
+    if (data.status == "private" || data.status == "restricted") {
         console.log("NEW ONE HAS GONE, SO LONG");
         dark++;
     } else {
@@ -92,9 +92,9 @@ function updateSubreddit(data, section, _new = false) {
     console.log(section_basename);
     if (!loaded) return;
     var text = "<strong>" + data.name + "</strong> has gone private! (" + section + ")";
-    if (data.status == "private") {
+    if (data.status == "private" || data.status == "restricted") {
         if (_new) {
-            newStatusUpdate("<strong>" + data.name + "</strong> has gone private!<br>(" + section + ")", function () {
+            newStatusUpdate("<strong>" + data.name + "</strong> has gone " + data.status + "!<br>(" + section + ")", function () {
                 doScroll(document.getElementById(data.name));
             }, ["n" + section_basename])
             audioSystem.play("privated")
@@ -159,7 +159,7 @@ function fillSubredditsList(data) {
         subs.sort((a, b) => (a.name.toUpperCase() > b.name.toUpperCase()) ? 1 : -1)
         for (var subreddit of subs) {
             amount++;
-            if (subreddit.status == "private") {
+            if (subreddit.status == "private" || subreddit.status == "restricted") {
                 dark++;
             }
             sectionGrid.appendChild(genItem(subreddit.name, subreddit.status));

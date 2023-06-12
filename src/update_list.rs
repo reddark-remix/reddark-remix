@@ -1,15 +1,18 @@
 use std::num::NonZeroU32;
+use std::time::Duration;
 use crate::reddit::Reddit;
 use anyhow::Result;
 use tracing::info;
 use redis::AsyncCommands;
 use crate::Cli;
 
-pub async fn update_list(cli: &Cli, rate_limit: NonZeroU32) -> Result<()> {
+pub async fn update_list(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU32>) -> Result<()> {
     let reddit = Reddit::new(rate_limit);
     let con = cli.new_redis_connection().await?;
 
-    {
+    let mut timer = period.map(|p| tokio::time::interval(Duration::from_secs(p.get() as u64)));
+
+    loop {
         let mut con = con.lock().await;
         info!("Fetching subreddits...");
         let subs = reddit.fetch_subreddits().await?;
@@ -24,6 +27,13 @@ pub async fn update_list(cli: &Cli, rate_limit: NonZeroU32) -> Result<()> {
             }
         }
         info!("Done!");
+
+        if let Some(t) = timer.as_mut() {
+            info!("Awaiting tick...");
+            t.tick().await;
+        } else {
+            break
+        }
     }
     Ok(())
 }

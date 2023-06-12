@@ -1,14 +1,17 @@
 use std::num::NonZeroU32;
+use std::time::Duration;
 use tracing::{error, info};
 use crate::Cli;
-use crate::reddit::{Reddit, SubredditDelta, SubredditState};
+use crate::reddit::{Reddit, SubredditDelta};
 use crate::redis_helper::RedisHelper;
 
-pub async fn updater(cli: &Cli, rate_limit: NonZeroU32) -> anyhow::Result<()> {
+pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU32>) -> anyhow::Result<()> {
     let reddit = Reddit::new(rate_limit);
     let redis_helper = RedisHelper::new(cli).await?;
 
-    {
+    let mut timer = period.map(|p| tokio::time::interval(Duration::from_secs(p.get() as u64)));
+
+    loop {
         let start = std::time::Instant::now();
         let redis_subreddits = redis_helper.get_current_state().await?;
 
@@ -27,9 +30,9 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32) -> anyhow::Result<()> {
                     subreddit: subreddit.clone(),
                 };
 
-                let is_private = reddit.is_subreddit_private(&subreddit.name).await?;
+                let state = reddit.get_subreddit_state(&subreddit.name).await?;
 
-                delta.subreddit.state = if is_private { SubredditState::PRIVATE } else { SubredditState::PUBLIC };
+                delta.subreddit.state = state;
 
                 if delta.prev_state != delta.subreddit.state {
                     info!("Change happend! Subreddit {} has gone from {:?} to {:?}.", delta.subreddit.name, delta.prev_state, delta.subreddit.state);
@@ -58,6 +61,13 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32) -> anyhow::Result<()> {
         let taken = stop.duration_since(start);
         let perc = (((total_subs - failed_subs) as f32) / (total_subs as f32)) * 100.0;
         info!("Done! Update took {} seconds. {failed_subs} out of {total_subs} subs failed to fetch. Success rate is: {perc:.2}%", taken.as_secs_f32());
+
+        if let Some(t) = timer.as_mut() {
+            info!("Awaiting tick...");
+            t.tick().await;
+        } else {
+            break
+        }
     }
 
     Ok(())

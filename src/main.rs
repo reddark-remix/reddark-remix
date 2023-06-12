@@ -5,6 +5,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use redis::aio::{Connection, PubSub};
 use tokio::sync::Mutex;
+use tracing::info;
+use crate::reddit::Reddit;
 
 mod reddit;
 mod redis_helper;
@@ -42,6 +44,8 @@ pub enum Commands {
     UpdateSubredditList {
         #[clap(long = "rate-limit", short = 'r', default_value = "100")]
         rate_limit: NonZeroU32,
+        #[clap(long = "period", short = 'p')]
+        period: Option<NonZeroU32>,
     },
     /// Serve the pages
     Server {
@@ -51,7 +55,15 @@ pub enum Commands {
     Updater {
         #[clap(long = "rate-limit", short = 'r', default_value = "100")]
         rate_limit: NonZeroU32,
+        #[clap(long = "period", short = 'p')]
+        period: Option<NonZeroU32>,
     },
+    Check {
+        #[clap(long = "rate-limit", short = 'r', default_value = "100")]
+        rate_limit: NonZeroU32,
+        #[clap(long = "subreddit", short = 's')]
+        subreddit: String,
+    }
 }
 
 #[tokio::main]
@@ -62,14 +74,19 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::UpdateSubredditList { rate_limit } => {
-            update_list::update_list(&cli, *rate_limit).await?;
+        Commands::UpdateSubredditList { rate_limit, period } => {
+            update_list::update_list(&cli, *rate_limit, *period).await?;
         }
         Commands::Server { listen } => {
             server::server(&cli, &listen).await?;
         }
-        Commands::Updater { rate_limit } => {
-            updater::updater(&cli, *rate_limit).await?;
+        Commands::Updater { rate_limit, period } => {
+            updater::updater(&cli, *rate_limit, *period).await?;
+        }
+        Commands::Check { rate_limit, subreddit } => {
+            let reddit = Reddit::new(*rate_limit);
+            let result = reddit.get_subreddit_state(subreddit).await?;
+            info!("Subreddit {subreddit} is state: {result:?}");
         }
     }
 
