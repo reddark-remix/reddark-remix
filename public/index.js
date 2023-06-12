@@ -99,8 +99,8 @@ function updateSubreddit(data, section, _new = false) {
     
     console.log(section_basename);
     if (!loaded) return;
-    section = section.substring(0, section.length - 1);
-    var text = "<strong>" + data.name + "</strong> has gone private! (" + section + ")";
+    section = section.trim();
+    var text = "<strong>" + data.name + "</strong> has gone " + data.status + "! (" + section + ")";
     if (data.status == "private" || data.status == "restricted") {
         if (_new) {
             newStatusUpdate("<strong>" + data.name + "</strong> has gone " + data.status + "!<br>(" + section + ")", function () {
