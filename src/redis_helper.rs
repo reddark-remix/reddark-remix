@@ -39,7 +39,7 @@ impl RedisHelper {
     }
 
     pub async fn send_delta(&self, delta: &SubredditDelta) -> Result<()> {
-        if delta.prev_state != SubredditState::UNKNOWN {
+        if delta.prev_state != SubredditState::UNKNOWN || (delta.prev_state == SubredditState::UNKNOWN && delta.subreddit.state == SubredditState::PRIVATE) {
             info!("Sending subreddit delta for {}...", delta.subreddit.name);
             self.con.lock().await.publish("subreddit_updates", serde_json::to_string(&delta)?).await?;
         } else {
