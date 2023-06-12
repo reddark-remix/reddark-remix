@@ -1,13 +1,11 @@
-use governor::{clock, Quota, RateLimiter};
+use std::num::NonZeroU32;
+use std::sync::Arc;
+use std::time::Duration;
+use governor::{clock, Jitter, Quota, RateLimiter};
 use governor::middleware::NoOpMiddleware;
 use governor::state::{InMemoryState, NotKeyed};
-use nonzero_ext::nonzero;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-
-pub struct Reddit {
-    limiter: RateLimiter<NotKeyed, InMemoryState, clock::DefaultClock, NoOpMiddleware>,
-}
 
 #[derive(Clone, Debug, Copy, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SubredditState {
@@ -38,13 +36,13 @@ impl Subreddit {
         self.name.replace(|c:char| !c.is_alphanumeric(), "_").to_string()
     }
 
-    pub fn is_private(&self) -> bool {
-        match self.state {
-            SubredditState::UNKNOWN => false,
-            SubredditState::PRIVATE => true,
-            SubredditState::PUBLIC => false,
-        }
-    }
+    // pub fn is_private(&self) -> bool {
+    //     match self.state {
+    //         SubredditState::UNKNOWN => false,
+    //         SubredditState::PRIVATE => true,
+    //         SubredditState::PUBLIC => false,
+    //     }
+    // }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -53,16 +51,21 @@ pub struct SubredditDelta {
     pub subreddit: Subreddit,
 }
 
+pub struct Reddit {
+    limiter: RateLimiter<NotKeyed, InMemoryState, clock::DefaultClock, NoOpMiddleware>,
+}
+
 impl Reddit {
-    pub fn new() -> Self {
-        let limiter = RateLimiter::direct(Quota::per_second(nonzero!(100u32)));
-        return Reddit {
+    pub fn new(rate_limit: NonZeroU32) -> Arc<Self> {
+        let limiter = RateLimiter::direct(Quota::per_second(rate_limit));
+        return Arc::new(Reddit {
             limiter,
-        };
+        });
     }
 
-    pub async fn make_request(&self, rel_url: &str) -> Result<reqwest::Response> {
-        self.limiter.until_ready().awaCit;
+    async fn make_request(&self, rel_url: &str) -> Result<reqwest::Response> {
+        //self.limiter.until_ready_with_jitter(Jitter::up_to(Duration::from_millis(100))).await;
+        self.limiter.until_ready().await;
         let client = reqwest::Client::builder();
         let client = client.user_agent("Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/114.0");
         let client = client.build()?;
@@ -96,11 +99,12 @@ impl Reddit {
         let mut current_section = "".to_string();
         let mut subreddits = Vec::new();
         for line in text.lines() {
+            let line = line.trim();
             if line.starts_with("##") && !line.contains("Please") && line.contains(":") {
                 current_section = line.replace("##", "").replace(":", "").trim().to_string();
             } else if line.starts_with("r/") {
                 subreddits.push(Subreddit {
-                    name: line.trim().to_string(),
+                    name: line.to_string(),
                     section: current_section.clone(),
                     state: SubredditState::UNKNOWN,
                 });

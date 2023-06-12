@@ -1,12 +1,13 @@
+use std::num::NonZeroU32;
 use std::sync::Arc;
-use clap::{Parser, Subcommand};
+
 use anyhow::Result;
-use redis::aio::Connection;
-use redis::AsyncCommands;
+use clap::{Parser, Subcommand};
+use redis::aio::{Connection, PubSub};
 use tokio::sync::Mutex;
-use tracing::info;
 
 mod reddit;
+mod redis_helper;
 mod update_list;
 mod server;
 mod updater;
@@ -23,22 +24,34 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub async fn make_connection(&self) -> anyhow::Result<Arc<Mutex<Connection>>> {
+    pub async fn new_redis_connection(&self) -> Result<Arc<Mutex<Connection>>> {
         let client = redis::Client::open(&*self.redis_url).unwrap();
         Ok(Arc::new(Mutex::new(client.get_async_connection().await?)))
     }
+
+    pub async fn new_redis_pubsub(&self) -> Result<PubSub> {
+        let client = redis::Client::open(&*self.redis_url).unwrap();
+        Ok(client.get_async_connection().await?.into_pubsub())
+    }
+
 }
 
 #[derive(Subcommand)]
 pub enum Commands {
     /// Updates the subreddit list in the database
-    UpdateSubredditList {  },
+    UpdateSubredditList {
+        #[clap(long = "rate-limit", short = 'r', default_value = "100")]
+        rate_limit: NonZeroU32,
+    },
     /// Serve the pages
     Server {
         #[clap(long = "listen", short = 'l', default_value = "0.0.0.0:4000")]
         listen: String,
     },
-    Updater {},
+    Updater {
+        #[clap(long = "rate-limit", short = 'r', default_value = "100")]
+        rate_limit: NonZeroU32,
+    },
 }
 
 #[tokio::main]
@@ -48,18 +61,15 @@ async fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
-    let mut con = cli.make_connection().await?;
-    let mut reddit = reddit::Reddit::new();
-
     match &cli.command {
-        Commands::UpdateSubredditList { .. } => {
-            update_list::update_list(con.clone(), &mut reddit).await?;
+        Commands::UpdateSubredditList { rate_limit } => {
+            update_list::update_list(&cli, *rate_limit).await?;
         }
         Commands::Server { listen } => {
-            server::server(con.clone(), &cli, &listen).await?;
+            server::server(&cli, &listen).await?;
         }
-        Commands::Updater { .. } => {
-            updater::updater(con.clone(), reddit).await?;
+        Commands::Updater { rate_limit } => {
+            updater::updater(&cli, *rate_limit).await?;
         }
     }
 

@@ -1,49 +1,49 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use redis::AsyncCommands;
-use tokio::sync::Mutex;
+use std::num::NonZeroU32;
 use tracing::info;
-use crate::reddit::{Reddit, Subreddit, SubredditDelta, SubredditState};
+use crate::Cli;
+use crate::reddit::{Reddit, SubredditDelta, SubredditState};
+use crate::redis_helper::RedisHelper;
 
-pub async fn updater(con: Arc<Mutex<redis::aio::Connection>>, reddit: Reddit) -> anyhow::Result<()> {
-    let srs: HashMap<String, String> = con.lock().await.hgetall("subreddit").await?;
-    let reddit = Arc::new(reddit);
+pub async fn updater(cli: &Cli, rate_limit: NonZeroU32) -> anyhow::Result<()> {
+    let reddit = Reddit::new(rate_limit);
+    let redis_helper = RedisHelper::new(cli).await?;
 
-    let fns = srs.values().map(|sr| {
-        let sr: Subreddit = serde_json::from_str(sr).unwrap();
-        let con = con.clone();
-        let reddit = reddit.clone();
-        let f = async move {
-            info!("Updating subreddit {}...", sr.name);
+    {
+        let redis_subreddits = redis_helper.get_current_state().await?;
 
-            let is_private = reddit.is_subreddit_private(&sr.name).await?;
+        // Spawn out all the subreddits.
+        let fns = redis_subreddits.into_iter().map(|subreddit| {
+            let reddit = reddit.clone();
+            let redis_helper = redis_helper.clone();
 
-            let mut sr_new = sr.clone();
-            sr_new.state = if is_private { SubredditState::PRIVATE } else { SubredditState::PUBLIC };
+            let f = async move {
+                info!("Updating subreddit {}...", subreddit.name);
 
-            if sr_new != sr {
-                info!("Change happend!");
-                let val = serde_json::to_string(&sr_new)?;
-                con.lock().await.hset("subreddit", sr_new.safe_name(), val).await?;
-                if sr.state != SubredditState::UNKNOWN {
-                    let delta = SubredditDelta {
-                        prev_state: sr.state,
-                        subreddit: sr_new,
-                    };
+                let mut delta = SubredditDelta {
+                    prev_state: subreddit.state.clone(),
+                    subreddit: subreddit.clone(),
+                };
 
-                    con.lock().await.publish("subreddit_updates", serde_json::to_string(&delta)?).await?;
-                } else {
-                    info!("Skipping notify due to previous unknown!");
+                let is_private = reddit.is_subreddit_private(&subreddit.name).await?;
+
+                delta.subreddit.state = if is_private { SubredditState::PRIVATE } else { SubredditState::PUBLIC };
+
+                if delta.prev_state != delta.subreddit.state {
+                    info!("Change happend! Subreddit {} has gone from {:?} to {:?}.", delta.subreddit.name, delta.prev_state, delta.subreddit.state);
                 }
-            }
 
-            anyhow::Ok(())
-        };
-        tokio::spawn(f)
-    }).collect::<Vec<_>>();
+                redis_helper.apply_delta(&delta).await?;
 
-    for h in fns {
-        h.await;
+                anyhow::Ok(())
+            };
+
+            tokio::spawn(f)
+        }).collect::<Vec<_>>();
+
+        // Wait for parallel work to finish.
+        for h in fns {
+            h.await??;
+        }
     }
 
     Ok(())

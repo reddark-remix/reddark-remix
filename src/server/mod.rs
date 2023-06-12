@@ -1,18 +1,18 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
-use std::ops::Index;
+use std::collections::{HashMap};
+use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
-use axum::routing::get;
+
 use axum::Server;
-use redis::{AsyncCommands, Msg};
+use futures_util::{TryStreamExt, TryFutureExt};
 use serde::Serialize;
-use serde_json::Value;
-use socketioxide::{Namespace, SocketIoLayer};
-use tokio::sync::Mutex;
-use tracing::{error, info};
+use socketioxide::{Namespace, Socket, SocketIoLayer};
+use socketioxide::adapter::LocalAdapter;
+use tokio::sync::{Mutex};
 use tower_http::services::{ServeDir, ServeFile};
-use crate::reddit::{Subreddit, SubredditDelta, SubredditState};
-use futures_util::stream::StreamExt;
+use tracing::{error, info};
+
+use crate::redis_helper::RedisHelper;
 
 #[derive(Serialize, Debug, Clone)]
 struct InitSRListEntry {
@@ -20,13 +20,11 @@ struct InitSRListEntry {
     status: String,
 }
 
-
-async fn compute_initial_reddits_list(con: Arc<Mutex<redis::aio::Connection>>) -> anyhow::Result<HashMap<String, Vec<InitSRListEntry>>> {
-    let srs: HashMap<String, String> = con.lock().await.hgetall("subreddit").await?;
+async fn compute_initial_reddits_list(redis_helper: &RedisHelper) -> anyhow::Result<HashMap<String, Vec<InitSRListEntry>>> {
     let mut result: HashMap<String, Vec<InitSRListEntry>> = HashMap::new();
+    let subreddits = redis_helper.get_current_state().await?;
 
-    for sr in srs.values() {
-        let sr: Subreddit = serde_json::from_str(sr)?;
+    for sr in subreddits {
         if !result.contains_key(&sr.section) {
             result.insert(sr.section.clone(), Vec::new());
         }
@@ -42,119 +40,145 @@ async fn compute_initial_reddits_list(con: Arc<Mutex<redis::aio::Connection>>) -
     Ok(result)
 }
 
-pub async fn server(con: Arc<Mutex<redis::aio::Connection>>, cli: &crate::Cli, listen: &str) -> anyhow::Result<()> {
-    info!("Starting server");
-    let active_sockets = Arc::new(Mutex::new(Vec::new()));
+struct SocketManager {
+    active_sockets: Mutex<Vec<Arc<Socket<LocalAdapter>>>>,
+}
 
-    let ns = {
-        let con = con.clone();
-        let active_sockets = active_sockets.clone();
-        Namespace::builder()
-            .add("/", move |socket| {
-                let con = con.clone();
-                let active_sockets = active_sockets.clone();
-                async move {
-                    info!("Socket connected on / namespace with id: {}", socket.sid);
-                    match compute_initial_reddits_list(con.clone()).await {
-                        Ok(d) => {
-                            info!("Sent subreddits!");
-                            socket.emit("subreddits", d);
-                        }
+impl SocketManager {
+    pub fn new() -> Arc<Self> {
+        Arc::new(Self {
+            active_sockets: Mutex::new(Vec::new()),
+        })
+    }
 
-                        Err(e) => {
-                            error!("Error fetching initial subreddits list: {}", e);
-                        }
-                    }
+    pub async fn add_socket(&self, socket: Arc<Socket<LocalAdapter>>) -> anyhow::Result<()> {
+        self.active_sockets.lock().await.push(socket);
+        Ok(())
+    }
 
-                    active_sockets.lock().await.push(socket.clone());
-                }
-            })
-            .build()
-    };
-
-    let periodic_subreddits = async {
-        loop {
-            tokio::time::sleep(Duration::from_secs(60)).await;
-            match compute_initial_reddits_list(con.clone()).await {
-                Ok(d) => {
-                    info!("Periodic send subreddits!");
-                    let mut s = active_sockets.lock().await;
-
-                    //TODO: Figure out a way to clean up old handlers.
-
-                    let mut clean_up = Vec::new();
-                    for (idx, sock) in s.iter().enumerate() {
-                        let res = sock.emit("subreddits", d.clone());
-                        if let Err(_) = res {
-                            clean_up.push(idx);
-                        }
-                    }
-
-                    for i in clean_up.iter().rev() {
-                        s.remove(*i);
-                    }
-                }
-
-                Err(e) => {
-                    error!("Error fetching initial subreddits list: {}", e);
-                }
-            }
-        };
-
-
-
-    };
-
-
-    let pubsub = async {
-        let client = redis::Client::open(&*cli.redis_url).unwrap();
-        let con = client.get_async_connection().await?;
-        let mut pubsub = con.into_pubsub();
-
-        pubsub.subscribe("subreddit_updates").await?;
-
-        let mut s =  pubsub.into_on_message();
-
-        while let Some(item) = s.next().await {
-            let item: Msg = item;
-            let delta: String = item.get_payload()?;
-            let delta: SubredditDelta = serde_json::from_str(&delta)?;
-
-            let mut msg: HashMap<String, String> = HashMap::new();
-            msg.insert("name".to_string(), delta.subreddit.name.clone());
-            msg.insert("status".to_string(), delta.subreddit.state.to_string());
-
-            let mut s = active_sockets.lock().await;
-
-            //TODO: Figure out a way to clean up old handlers.
-
-            let mut clean_up = Vec::new();
+    pub async fn emit_all(&self, event: impl Into<String>, data: impl Serialize + Clone) -> anyhow::Result<()> {
+        let mut clean_up = Vec::new();
+        {
+            let s: Vec<_> = self.active_sockets.lock().await.clone();
+            let event = event.into();
             for (idx, sock) in s.iter().enumerate() {
-                let res = sock.emit("updatenew", msg.clone());
+                let res = sock.emit(event.clone(), data.clone());
                 if let Err(_) = res {
                     clean_up.push(idx);
                 }
             }
+        }
 
+        {
+            let mut s = self.active_sockets.lock().await;
             for i in clean_up.iter().rev() {
                 s.remove(*i);
             }
         }
 
-        anyhow::Ok(())
-    };
+        Ok(())
+    }
+}
 
+async fn start_server(redis_helper: RedisHelper, socket_manager: Arc<SocketManager>, listen: &str) -> anyhow::Result<impl Future<Output=anyhow::Result<()>>> {
+    let ns = {
+        Namespace::builder()
+            .add("/", move |socket| {
+                let redis_helper = redis_helper.clone();
+                let socket_manager = socket_manager.clone();
+                async move {
+                    info!("Socket connected on / namespace with id: {}", socket.sid);
+                    match compute_initial_reddits_list(&redis_helper).await {
+                        Ok(d) => {
+                            info!("Sent subreddits!");
+                            let res = socket.emit("subreddits", d);
+                            if let Ok(_) = res {
+                                let _ = socket_manager.add_socket(socket.clone()).await;
+                            }
+                        }
+                        Err(e) => {
+                            error!("Error fetching initial subreddits list: {}", e);
+                        }
+                    }
+                }
+            })
+            .build()
+    };
     let serve_dir = ServeDir::new("public").not_found_service(ServeFile::new("public/index.html"));
 
-
     let app = axum::Router::new()
-//        .route("/", get(|| async { "Hello, World!" }))
         .nest_service("/", serve_dir.clone())
         .layer(SocketIoLayer::new(ns));
 
-    let server = Server::bind(&listen.parse().unwrap())
-        .serve(app.into_make_service());
+    Ok(
+        Server::bind(&listen.parse().unwrap())
+            .serve(app.into_make_service())
+            .map_err(|e| anyhow::Error::from(e))
+    )
+}
 
-    tokio::join!(pubsub, server, periodic_subreddits);
+async fn start_periodic_job(redis_helper: RedisHelper, socket_manager: Arc<SocketManager>) -> anyhow::Result<impl Future<Output=anyhow::Result<()>>> {
+    Ok(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(60));
+        loop {
+            // Wait period.
+            interval.tick().await;
+
+            match compute_initial_reddits_list(&redis_helper).await {
+                Ok(d) => {
+                    info!("Periodic send subreddits!");
+                    socket_manager.emit_all("subreddits", d).await?;
+                }
+
+                Err(e) => {
+                    error!("Error fetching subreddits list: {}", e);
+                }
+            }
+        }
+        // Hint to type system
+        #[allow(unreachable_code)]
+        anyhow::Ok(())
+    })
+}
+
+async fn start_pubsub(cli: &crate::Cli, socket_manager: Arc<SocketManager>) -> anyhow::Result<impl Future<Output=anyhow::Result<()>>> {
+    let mut stream = crate::redis_helper::new_delta_stream(cli).await?;
+    let socket_manager = socket_manager.clone();
+    Ok(async move {
+        while let Some(delta) = stream.try_next().await? {
+            let mut msg: HashMap<String, String> = HashMap::new();
+            msg.insert("name".to_string(), delta.subreddit.name.clone());
+            msg.insert("status".to_string(), delta.subreddit.state.to_string());
+
+            socket_manager.emit_all("updatenew", msg).await?;
+        }
+
+        anyhow::Ok(())
+    })
+}
+
+pub async fn server(cli: &crate::Cli, listen: &str) -> anyhow::Result<()> {
+    info!("Starting server");
+    let socket_manager = SocketManager::new();
+    let redis_helper = RedisHelper::new(cli).await?;
+
+    let server = start_server(redis_helper.clone(), socket_manager.clone(), listen).await?;
+    let periodic_subreddits = start_periodic_job(redis_helper.clone(), socket_manager.clone()).await?;
+    let pubsub = start_pubsub(cli, socket_manager.clone()).await?;
+
+    tokio::select! {
+        val = pubsub => {
+            val?;
+        }
+        val = server => {
+            val?;
+        }
+        val = periodic_subreddits => {
+            val?;
+        }
+    }
+
+    info!("Exited!");
+
     Ok(())
 }
