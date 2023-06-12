@@ -44,16 +44,20 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32) -> anyhow::Result<()> {
         }).collect::<Vec<_>>();
 
         // Wait for parallel work to finish.
+        let mut failed_subs = 0usize;
+        let total_subs = fns.len();
         for (n, h) in fns {
             let result = h.await?;
             if let Err(e) = result {
                 error!("Failed to update sub {n}: {e}");
+                failed_subs += 1;
             }
         }
 
         let stop = std::time::Instant::now();
         let taken = stop.duration_since(start);
-        info!("Done! Update took {} seconds.", taken.as_secs_f32());
+        let perc = (((total_subs - failed_subs) as f32) / (total_subs as f32)) * 100.0;
+        info!("Done! Update took {} seconds. {failed_subs} out of {total_subs} subs failed to fetch. Success rate is: {perc:.2}%", taken.as_secs_f32());
     }
 
     Ok(())
