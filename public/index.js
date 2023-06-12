@@ -197,11 +197,9 @@ od_togo = new Odometer({
 });
 
 function updateStatusText() {
-    var perc = (dark / amount) * 100;
-    perc = Math.round((perc + Number.EPSILON) * 100) / 100;
-    document.getElementById("amount").innerHTML = "<strong>" + dark + "</strong><light>/" + amount + "</light> <light>(" + perc + "%)</light> subreddits are currently dark.";
+    document.getElementById("amount").innerHTML = "<strong>" + dark + "</strong><light>/" + amount + "</light> subreddits are currently dark.";
     od.update(dark);
-    document.getElementById("lc-max").innerHTML = " <light>out of</light> " + amount + " (" + perc + "%)";
+    document.getElementById("lc-max").innerHTML = " <light>out of</light> " + amount;
 
     var percentage = ((dark / amount) * 100).toFixed(2);
     od_percentage.update(percentage);
