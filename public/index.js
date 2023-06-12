@@ -38,8 +38,14 @@ var sectionList = [
     "100k+",
     "50k+",
     "5k+",
-    "5k and below"
+    "5k and below",
+    "1k+",
+    "1k and below"
 ];
+
+socket.on("sections", (data) => {
+    sectionList = JSON.parse(data);
+})
 
 var loaded = false;
 socket.on("subreddits", (data) => {

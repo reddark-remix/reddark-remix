@@ -10,6 +10,7 @@ use socketioxide::{Namespace, Socket, SocketIoLayer};
 use socketioxide::adapter::LocalAdapter;
 use tokio::sync::{Mutex};
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::trace::TraceLayer;
 use tracing::{error, info};
 
 use crate::redis_helper::RedisHelper;
@@ -88,6 +89,18 @@ async fn start_server(redis_helper: RedisHelper, socket_manager: Arc<SocketManag
                 let socket_manager = socket_manager.clone();
                 async move {
                     info!("Socket connected on / namespace with id: {}", socket.sid);
+                    match redis_helper.get_sections().await {
+                        Ok(s) => {
+                            info!("Sent sections!");
+                            let e = socket.emit("sections", s);
+                            info!("A: {e:?}");
+                        }
+                        Err(e) => {
+                            error!("Error fetching initial sections list: {}", e);
+                            let _ = socket.disconnect();
+                        }
+                    }
+
                     match compute_initial_reddits_list(&redis_helper).await {
                         Ok(d) => {
                             info!("Sent subreddits!");
@@ -98,6 +111,7 @@ async fn start_server(redis_helper: RedisHelper, socket_manager: Arc<SocketManag
                         }
                         Err(e) => {
                             error!("Error fetching initial subreddits list: {}", e);
+                            let _ = socket.disconnect();
                         }
                     }
                 }
@@ -108,7 +122,8 @@ async fn start_server(redis_helper: RedisHelper, socket_manager: Arc<SocketManag
 
     let app = axum::Router::new()
         .nest_service("/", serve_dir.clone())
-        .layer(SocketIoLayer::new(ns));
+        .layer(SocketIoLayer::new(ns))
+        .layer(TraceLayer::new_for_http());
 
     Ok(
         Server::bind(&listen.parse().unwrap())
@@ -123,6 +138,16 @@ async fn start_periodic_job(redis_helper: RedisHelper, socket_manager: Arc<Socke
         loop {
             // Wait period.
             interval.tick().await;
+
+            match redis_helper.get_sections().await {
+                Ok(s) => {
+                    info!("Periodic send sections!");
+                    socket_manager.emit_all("sections", s).await?;
+                }
+                Err(e) => {
+                    error!("Error fetching sections list: {}", e);
+                }
+            }
 
             match compute_initial_reddits_list(&redis_helper).await {
                 Ok(d) => {

@@ -15,7 +15,13 @@ pub async fn update_list(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZe
     loop {
         let mut con = con.lock().await;
         info!("Fetching subreddits...");
-        let subs = reddit.fetch_subreddits().await?;
+        let (sections, subs) = reddit.fetch_subreddits().await?;
+
+        {
+            let val = serde_json::to_string(&sections)?;
+            con.set("sections", val).await?;
+        }
+
         for sub in subs {
             let e: bool = con.hexists("subreddit", sub.safe_name()).await?;
             if !e {

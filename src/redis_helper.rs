@@ -38,6 +38,32 @@ impl RedisHelper {
         Ok(())
     }
 
+    pub async fn set_sections(&self, sections: Vec<String>) -> Result<()> {
+        let val = serde_json::to_string(&sections)?;
+        self.con.lock().await.set("sections", val).await?;
+        Ok(())
+    }
+
+    pub async fn get_sections(&self) -> Result<Vec<String>> {
+        let sections: Option<Vec<String>> = self.con.lock().await.get("sections").await?;
+        Ok(sections.unwrap_or(vec![
+            "40+ million".to_string(),
+            "30+ million".to_string(),
+            "20+ million".to_string(),
+            "10+ million".to_string(),
+            "5+ million".to_string(),
+            "1+ million".to_string(),
+            "500k+".to_string(),
+            "250k+".to_string(),
+            "100k+".to_string(),
+            "50k+".to_string(),
+            "5k+".to_string(),
+            "5k and below".to_string(),
+            "1k+".to_string(),
+            "1k and below".to_string(),
+        ]))
+    }
+
     pub async fn send_delta(&self, delta: &SubredditDelta) -> Result<()> {
         if delta.prev_state != SubredditState::UNKNOWN || (delta.prev_state == SubredditState::UNKNOWN && delta.subreddit.state == SubredditState::PRIVATE) {
             info!("Sending subreddit delta for {}...", delta.subreddit.name);

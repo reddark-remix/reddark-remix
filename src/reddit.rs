@@ -115,7 +115,7 @@ impl Reddit {
         }
     }
 
-    pub async fn fetch_subreddits(&self) -> Result<Vec<Subreddit>> {
+    pub async fn fetch_subreddits(&self) -> Result<(Vec<String>, Vec<Subreddit>)> {
         let resp = self.make_request("/r/ModCoord/wiki/index.json").await?;
         let data: serde_json::Value = resp.json().await?;
         let text = data.get("data").and_then(|v| v.get("content_md")).ok_or(anyhow::anyhow!("Couldn't get content_md!"))?;
@@ -123,11 +123,18 @@ impl Reddit {
 
         let mut current_section = "".to_string();
         let mut subreddits = Vec::new();
+        let mut sections = Vec::new();
+        let mut new_section = false;
         for line in text.lines() {
             let line = line.trim();
             if line.starts_with("##") && !line.contains("Please") && line.contains(":") {
                 current_section = line.replace("##", "").replace(":", "").trim().to_string();
+                new_section = true;
             } else if line.starts_with("r/") {
+                if new_section {
+                    sections.push(current_section.clone());
+                    new_section = false;
+                }
                 subreddits.push(Subreddit {
                     name: line.to_string(),
                     section: current_section.clone(),
@@ -136,6 +143,6 @@ impl Reddit {
             }
         }
 
-        Ok(subreddits)
+        Ok((sections, subreddits))
     }
 }
