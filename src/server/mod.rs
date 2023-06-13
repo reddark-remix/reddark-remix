@@ -174,6 +174,7 @@ async fn start_pubsub(cli: &crate::Cli, socket_manager: Arc<SocketManager>) -> a
             let mut msg: HashMap<String, String> = HashMap::new();
             msg.insert("name".to_string(), delta.subreddit.name.clone());
             msg.insert("status".to_string(), delta.subreddit.state.to_string());
+            msg.insert("section".to_string(), delta.subreddit.section.clone());
 
             socket_manager.emit_all("updatenew", msg).await?;
         }
