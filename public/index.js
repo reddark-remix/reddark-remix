@@ -129,6 +129,7 @@ function updateSubreddit(data, section, _new = false) {
         }
         if (document.getElementById(data.name) != null) {
             document.getElementById(data.name).classList.remove("subreddit-private");
+            document.getElementById(data.name).classList.remove("subreddit-restricted");
         }
     }
     updateStatusText();
