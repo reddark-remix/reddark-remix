@@ -18,15 +18,12 @@ use crate::reddit::{Subreddit, SubredditDelta, SubredditState};
 #[derive(Clone)]
 pub struct RedisHelper {
     con: Arc<Mutex<Connection>>,
-    limiter: Arc<RateLimiter<NotKeyed, InMemoryState, clock::DefaultClock, NoOpMiddleware>>,
 }
 
 impl RedisHelper {
     pub async fn new(cli: &Cli) -> Result<Self> {
         let con = cli.new_redis_connection().await?;
         Ok(Self {
-            // Limit the amount of updates a second to 2. Avoids flooding messages.
-            limiter: Arc::new(RateLimiter::direct(Quota::per_second(nonzero!(2u32)))),
             con,
         })
     }
@@ -53,28 +50,31 @@ impl RedisHelper {
     }
 
     pub async fn get_sections(&self) -> Result<Vec<String>> {
-        let sections: Option<Vec<String>> = self.con.lock().await.get("sections").await?;
-        Ok(sections.unwrap_or(vec![
-            "40+ million".to_string(),
-            "30+ million".to_string(),
-            "20+ million".to_string(),
-            "10+ million".to_string(),
-            "5+ million".to_string(),
-            "1+ million".to_string(),
-            "500k+".to_string(),
-            "250k+".to_string(),
-            "100k+".to_string(),
-            "50k+".to_string(),
-            "5k+".to_string(),
-            "5k and below".to_string(),
-            "1k+".to_string(),
-            "1k and below".to_string(),
-        ]))
+        let sections: Option<String> = self.con.lock().await.get("sections").await?;
+        if let Some(sections) = sections {
+            Ok(serde_json::from_str(&sections)?)
+        } else {
+            Ok(vec![
+                "40+ million".to_string(),
+                "30+ million".to_string(),
+                "20+ million".to_string(),
+                "10+ million".to_string(),
+                "5+ million".to_string(),
+                "1+ million".to_string(),
+                "500k+".to_string(),
+                "250k+".to_string(),
+                "100k+".to_string(),
+                "50k+".to_string(),
+                "5k+".to_string(),
+                "5k and below".to_string(),
+                "1k+".to_string(),
+                "1k and below".to_string(),
+            ])
+        }
     }
 
     pub async fn send_delta(&self, delta: &SubredditDelta) -> Result<()> {
         if delta.prev_state != SubredditState::UNKNOWN || (delta.prev_state == SubredditState::UNKNOWN && delta.subreddit.state == SubredditState::PRIVATE) {
-            self.limiter.until_ready_with_jitter(Jitter::up_to(Duration::from_millis(10))).await;
             info!("Sending subreddit delta for {}...", delta.subreddit.name);
             self.con.lock().await.publish("subreddit_updates", serde_json::to_string(&delta)?).await?;
         } else {
