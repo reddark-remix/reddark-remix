@@ -11,3 +11,24 @@ Reddark pulls the list of participating subreddits from the [threads on r/ModCoo
 > **SubManagerBot**
 > 
 > If you have already commented your sub below or your sub is already on the list and now going private, please do NOT send a modmail - if you comment here, your sub will be on the list.
+
+## Running it yourself
+
+You'll need a redis instance running at localhost.
+Also have rust installed and working. (https://rustup.rs is good)
+Then run the process to import the subreddit list from /r/ModCoord:
+```sh
+cargo run --release -- update-subreddit-list
+```
+Next you run the process that checks for subreddit updates:
+```sh
+cargo run --release -- updater --rate-limit 500
+```
+Finally, the web server:
+```sh
+cargo run --release -- server
+```
+
+The latter process stays running. The other two exit.
+Run the updater again to process updated status and get events to fire to frontend.
+If you want to edit the templates, you have to restart the webserver after each edit.
