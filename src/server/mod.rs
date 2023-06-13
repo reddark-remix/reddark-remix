@@ -1,4 +1,3 @@
-use std::collections::{HashMap};
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,12 +6,11 @@ use axum::routing::get;
 use axum::Server;
 use axum_template::engine::Engine;
 use futures_util::{TryStreamExt, TryFutureExt};
-use serde::Serialize;
 use tera::Tera;
-use tokio::sync::{broadcast, Mutex};
-use tower_http::services::{ServeDir, ServeFile};
+use tokio::sync::broadcast;
+use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
-use tracing::{error, info};
+use tracing::info;
 
 use crate::redis_helper::RedisHelper;
 use crate::server::model::PushMessage;

@@ -57,6 +57,8 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU3
             }
         }
 
+        redis_helper.trim_history().await?;
+
         let stop = std::time::Instant::now();
         let taken = stop.duration_since(start);
         let perc = (((total_subs - failed_subs) as f32) / (total_subs as f32)) * 100.0;

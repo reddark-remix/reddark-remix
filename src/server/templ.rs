@@ -6,7 +6,7 @@ use axum_template::engine::Engine;
 use axum_template::RenderHtml;
 use serde::Serialize;
 use tera::Tera;
-use crate::reddit::{Subreddit, SubredditState};
+use crate::reddit::SubredditState;
 use crate::server::{AppEngine, AppState};
 
 #[derive(Serialize, Debug)]

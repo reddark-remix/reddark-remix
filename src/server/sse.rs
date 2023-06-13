@@ -1,13 +1,10 @@
-use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
 use axum::extract::State;
-use axum::http::StatusCode;
 use axum::response::Sse;
 use axum::response::sse::Event;
-use futures_util::{Stream, TryFutureExt};
+use futures_util::Stream;
 use futures_util::StreamExt;
-use futures_util::TryStreamExt;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use crate::server::AppState;

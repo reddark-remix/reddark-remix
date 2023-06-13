@@ -1,15 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 use redis::aio::Connection;
 use tokio::sync::Mutex;
 use anyhow::Result;
 use futures_util::TryStream;
 use futures_util::StreamExt;
-use governor::{clock, Jitter, Quota, RateLimiter};
-use governor::middleware::NoOpMiddleware;
-use governor::state::{InMemoryState, NotKeyed};
-use nonzero_ext::nonzero;
 use redis::{AsyncCommands, Msg};
 use tracing::info;
 use crate::Cli;
@@ -76,10 +71,17 @@ impl RedisHelper {
     pub async fn send_delta(&self, delta: &SubredditDelta) -> Result<()> {
         if delta.prev_state != SubredditState::UNKNOWN || (delta.prev_state == SubredditState::UNKNOWN && delta.subreddit.state == SubredditState::PRIVATE) {
             info!("Sending subreddit delta for {}...", delta.subreddit.name);
-            self.con.lock().await.publish("subreddit_updates", serde_json::to_string(&delta)?).await?;
+            let data = serde_json::to_string(&delta)?;
+            self.con.lock().await.lpush("historical_deltas", data.clone()).await?;
+            self.con.lock().await.publish("subreddit_updates", data).await?;
         } else {
             info!("Skipping subreddit delta for {}.", delta.subreddit.name);
         }
+        Ok(())
+    }
+
+    pub async fn trim_history(&self) -> Result<()> {
+        self.con.lock().await.ltrim("historical_deltas", 0, 10000).await?;
         Ok(())
     }
 
