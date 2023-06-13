@@ -7,7 +7,7 @@ var audioSystem = {
     }
 }
 
-var block = ["r/bi_irl", "r/suddenlybi", "r/ennnnnnnnnnnnbbbbbby", "r/feemagers", "r/BrexitAteMyFace", "r/emoney"];
+var block = ["r/bi_irl", "r/suddenlybi", "r/ennnnnnnnnnnnbbbbbby", "r/feemagers", "r/BrexitAteMyFace", "r/emoney", "r/Inzaghi"];
 
 document.getElementById("enable_sounds").addEventListener("click", function () {
     if (audioSystem.playAudio == false) {
