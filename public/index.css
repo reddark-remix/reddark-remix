@@ -194,11 +194,11 @@ a {
     display: none;
 }
 
-.hide-private .subreddit-private {
+.hide-private .subreddit-private, .hide-private .subreddit-restricted {
     display: none;
 }
 
-.hide-public .subreddit-private {
+.hide-public .subreddit-private, .hide-public .subreddit-restricted {
     display: inherit;
     text-shadow: none;
 }
