@@ -10,15 +10,15 @@ var audioSystem = {
 var block = ["r/bi_irl", "r/suddenlybi", "r/ennnnnnnnnnnnbbbbbby", "r/feemagers", "r/BrexitAteMyFace", "r/emoney", "r/Inzaghi"];
 
 document.getElementById("enable_sounds").addEventListener("click", function () {
-    if (audioSystem.playAudio == false) {
-        document.getElementById("enable_sounds").innerHTML = "Disable sound alerts"
+    if (!audioSystem.playAudio) {
+        this.innerHTML = "Disable sound alerts"
         audioSystem.playAudio = true;
         audioSystem.play("privated");
         newStatusUpdate("Enabled audio alerts.");
     } else {
         audioSystem.playAudio = false;
         newStatusUpdate("Disabled audio alerts.");
-        document.getElementById("enable_sounds").innerHTML = "Enable sound alerts"
+        this.innerHTML = "Enable sound alerts"
     }
 })
 
