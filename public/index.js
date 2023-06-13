@@ -117,7 +117,7 @@ function updateSubreddit(data, section, _new = false) {
             audioSystem.play("privated")
         }
         if (document.getElementById(data.name) != null) {
-            document.getElementById(data.name).classList.add("subreddit-private");
+            document.getElementById(data.name).classList.add("subreddit-" + data.status);
         }
     } else {
         if (_new) {
