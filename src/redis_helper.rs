@@ -1,10 +1,15 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 use redis::aio::Connection;
 use tokio::sync::Mutex;
 use anyhow::Result;
 use futures_util::TryStream;
 use futures_util::StreamExt;
+use governor::{clock, Jitter, Quota, RateLimiter};
+use governor::middleware::NoOpMiddleware;
+use governor::state::{InMemoryState, NotKeyed};
+use nonzero_ext::nonzero;
 use redis::{AsyncCommands, Msg};
 use tracing::info;
 use crate::Cli;
@@ -13,12 +18,15 @@ use crate::reddit::{Subreddit, SubredditDelta, SubredditState};
 #[derive(Clone)]
 pub struct RedisHelper {
     con: Arc<Mutex<Connection>>,
+    limiter: Arc<RateLimiter<NotKeyed, InMemoryState, clock::DefaultClock, NoOpMiddleware>>,
 }
 
 impl RedisHelper {
     pub async fn new(cli: &Cli) -> Result<Self> {
         let con = cli.new_redis_connection().await?;
         Ok(Self {
+            // Limit the amount of updates a second to 2. Avoids flooding messages.
+            limiter: Arc::new(RateLimiter::direct(Quota::per_second(nonzero!(2u32)))),
             con,
         })
     }
@@ -66,6 +74,7 @@ impl RedisHelper {
 
     pub async fn send_delta(&self, delta: &SubredditDelta) -> Result<()> {
         if delta.prev_state != SubredditState::UNKNOWN || (delta.prev_state == SubredditState::UNKNOWN && delta.subreddit.state == SubredditState::PRIVATE) {
+            self.limiter.until_ready_with_jitter(Jitter::up_to(Duration::from_millis(10))).await;
             info!("Sending subreddit delta for {}...", delta.subreddit.name);
             self.con.lock().await.publish("subreddit_updates", serde_json::to_string(&delta)?).await?;
         } else {
