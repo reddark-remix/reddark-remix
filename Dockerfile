@@ -13,6 +13,7 @@ RUN apt-get update \
 EXPOSE 4000
 
 COPY ./public ./public
+COPY ./templates ./templates
 COPY --from=builder /app/src/reddark-remix/target/release/reddark-remix ./
 
 ENTRYPOINT ["/usr/bin/tini-static", "--", "/app/reddark-remix"]
