@@ -141,7 +141,14 @@ function handleDeltaUpdate(message) {
         case "PRIVATE":
         case "RESTRICTED":
             audioSystem.play("privated");
-            totalDarkSubs += 1;
+            switch (subreddit["previous_state"]) {
+                case "PUBLIC":
+                case "UNKNOWN":
+                    totalDarkSubs += 1;
+                    break;
+                default:
+                    break;
+            }
             break;
         default:
             audioSystem.play("public");
