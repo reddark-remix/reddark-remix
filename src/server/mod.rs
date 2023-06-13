@@ -58,7 +58,7 @@ async fn start_server(redis_helper: RedisHelper, broadcast_channel: broadcast::S
 
 async fn start_periodic_job(redis_helper: RedisHelper, broadcast_channel: broadcast::Sender<PushMessage>) -> anyhow::Result<impl Future<Output=anyhow::Result<()>>> {
     Ok(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(5));
+        let mut interval = tokio::time::interval(Duration::from_secs(30));
         loop {
             // Wait period.
             interval.tick().await;
