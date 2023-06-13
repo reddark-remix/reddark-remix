@@ -168,8 +168,17 @@ function genItem(name, status) {
 }
 
 function hidePublicSubreddits() {
+    document.getElementById("list").classList.remove("hide-private");
     document.getElementById("list").classList.toggle("hide-public");
     document.getElementById("hide-public").classList.toggle("toggle-enabled");
+    document.getElementById("hide-private").classList.remove("toggle-enabled");
+}
+
+function hidePrivateSubreddits() {
+    document.getElementById("list").classList.remove("hide-public");
+    document.getElementById("list").classList.toggle("hide-private");
+    document.getElementById("hide-private").classList.toggle("toggle-enabled");
+    document.getElementById("hide-public").classList.remove("toggle-enabled");
 }
 
 function fillSubredditsList(data) {

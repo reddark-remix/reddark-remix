@@ -194,6 +194,10 @@ a {
     display: none;
 }
 
+.hide-private .subreddit-private {
+    display: none;
+}
+
 .hide-public .subreddit-private {
     display: inherit;
     text-shadow: none;
@@ -324,6 +328,7 @@ light {
 }
 
 .toggle {
+    margin-right: 12px;
     display: flex;
     align-items: center;
 }
