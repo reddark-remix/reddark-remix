@@ -148,7 +148,7 @@ a {
     grid-gap: 10px;
 }
 
-.subreddit a {
+.subreddit a, .team a {
     margin: 0px;
     font-size: 15px;
     color: #c3d4e9;
@@ -157,9 +157,19 @@ a {
     font-weight: 500;
 }
 
-.subreddit p {
+.team a {
+    color: var(--links);
+}
+
+.subreddit p, .team p {
     margin: 0px;
     color: var(--text-muted)
+}
+
+.split {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	grid-gap: 20px;
 }
 
 .subreddit-private {
