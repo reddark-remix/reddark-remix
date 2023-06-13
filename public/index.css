@@ -206,7 +206,11 @@ a {
     display: none;
 }
 
-.hide-public .subreddit-private {
+.hide-private .subreddit-private, .hide-private .subreddit-restricted {
+    display: none;
+}
+
+.hide-public .subreddit-private, .hide-public .subreddit-restricted {
     display: inherit;
     text-shadow: none;
 }
@@ -336,6 +340,7 @@ light {
 }
 
 .toggle {
+    margin-right: 12px;
     display: flex;
     align-items: center;
 }
