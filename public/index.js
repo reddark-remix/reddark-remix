@@ -160,7 +160,7 @@ function genItem(name, status) {
     _title.href = "https://old.reddit.com/" + name;
     _item.id = name;
     if (status != "public") {
-        _item.classList.add("subreddit-private");
+        _item.classList.add("subreddit-" + status);
     }
     _item.appendChild(_title);
     _item.appendChild(_status);
