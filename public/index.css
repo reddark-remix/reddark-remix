@@ -180,10 +180,22 @@ a {
     position: relative;
 }
 
+.subreddit-restricted {
+    color: #55bbff !important;
+    text-shadow: 0px 0px 20px #55bbff !important;
+}
+
 .subreddit-private p,
 .subreddit-private a {
     word-wrap: anywhere;
     color: #00ffaa !important;
+}
+
+
+.subreddit-restricted p,
+.subreddit-restricted a {
+    word-wrap: anywhere;
+    color: #55bbff !important;
 }
 
 .noscroll {

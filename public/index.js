@@ -117,7 +117,7 @@ function updateSubreddit(data, section, _new = false) {
             audioSystem.play("privated")
         }
         if (document.getElementById(data.name) != null) {
-            document.getElementById(data.name).classList.add("subreddit-private");
+            document.getElementById(data.name).classList.add("subreddit-" + data.status);
         }
     } else {
         if (_new) {
@@ -129,6 +129,7 @@ function updateSubreddit(data, section, _new = false) {
         }
         if (document.getElementById(data.name) != null) {
             document.getElementById(data.name).classList.remove("subreddit-private");
+            document.getElementById(data.name).classList.remove("subreddit-restricted");
         }
     }
     updateStatusText();
@@ -160,7 +161,7 @@ function genItem(name, status) {
     _title.href = "https://old.reddit.com/" + name;
     _item.id = name;
     if (status != "public") {
-        _item.classList.add("subreddit-private");
+        _item.classList.add("subreddit-" + status);
     }
     _item.appendChild(_title);
     _item.appendChild(_status);
