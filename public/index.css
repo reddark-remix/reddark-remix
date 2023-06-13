@@ -649,7 +649,7 @@ footer img {
 }
 
 .history-item-online {
-    display: none;
+    
     opacity: 0.4;
     transform: scale(0.9);
     filter: grayscale(0.8)
