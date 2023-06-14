@@ -5,6 +5,7 @@ use governor::{clock, Jitter, Quota, RateLimiter};
 use governor::middleware::NoOpMiddleware;
 use governor::state::{InMemoryState, NotKeyed};
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -52,6 +53,7 @@ impl Subreddit {
 pub struct SubredditDelta {
     pub prev_state: SubredditState,
     pub subreddit: Subreddit,
+    pub timestamp: DateTime<Utc>,
 }
 
 pub struct Reddit {

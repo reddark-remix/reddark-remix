@@ -28,7 +28,18 @@
         </div>
     </div>
     <div class="large-counter-history" id="counter-history">
-
+        {%- for item in history %}
+        {%- set subreddit = item["subreddit"] %}
+        {%- set basesect = subreddit["section"]|replace(from=" ", to="")|replace(from=":", to="")|replace(from="+", to="")|replace(from=" ", to="")|replace(from="\r", to="")|replace(from="\n", to="") %}
+        <div class="history-item n{{basesect}} {% if subreddit["state"] == "PUBLIC" %}history-item-online{% endif %}">
+            <h1>
+                <strong>{{subreddit["name"]}}</strong>
+                has gone {{subreddit["state"] | lower}}! ({{subreddit["section"]}})
+            </h1>
+        {%- set ts = item["timestamp"]|replace(from="T", to=" ")|split(pat=".") %}
+        <h3>{{ts[0]}}</h3>
+        </div>
+        {%- endfor %}
     </div>
 </div>
 
@@ -132,7 +143,7 @@
 <div class="amount">
     <div class="amount-inner">
         <input placeholder="Search" type="search" id="search-input" name="search" spellcheck="false"
-               onkeyup="this.value = this.value.replace(/[^\_||^a-z||^\d||^\/]/i, '')">
+               onkeyto="this.value = this.value.replace(/[^\_||^a-z||^\d||^\/]/i, '')">
         <h3 id="amount">
             <strong id="st-dark">{{dark_subs}}</strong><light>/<span id="st-total">{{total_subs}}</span></light> subreddits are currently dark.
         </h3>

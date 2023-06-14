@@ -80,6 +80,14 @@ impl RedisHelper {
         Ok(())
     }
 
+    pub async fn get_hist_delta(&self) -> Result<Vec<SubredditDelta>> {
+        let data: Vec<String> = self.con.lock().await.lrange("historical_deltas", 0, 20).await?;
+        let data = data.into_iter()
+            .map(|e| anyhow::Ok(serde_json::from_str::<SubredditDelta>(&e)?))
+            .collect::<Result<Vec<SubredditDelta>>>();
+        Ok(data?)
+    }
+
     pub async fn trim_history(&self) -> Result<()> {
         self.con.lock().await.ltrim("historical_deltas", 0, 10000).await?;
         Ok(())

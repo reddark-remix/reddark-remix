@@ -1,12 +1,13 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use axum::extract::State;
-use axum::response::IntoResponse;
+use axum::response::{Html, IntoResponse};
 use axum_template::engine::Engine;
-use axum_template::RenderHtml;
+use axum_template::TemplateEngine;
 use serde::Serialize;
 use tera::Tera;
-use crate::reddit::SubredditState;
+use tracing::error;
+use crate::reddit::{SubredditDelta, SubredditState};
 use crate::server::{AppEngine, AppState};
 
 #[derive(Serialize, Debug)]
@@ -22,6 +23,7 @@ struct Params {
     perc_subs: String,
     sections: Vec<String>,
     subreddits: BTreeMap<String, Vec<ParamSubreddit>>,
+    history: Vec<SubredditDelta>,
 }
 
 pub async fn make_app_engine() -> anyhow::Result<AppEngine> {
@@ -37,10 +39,12 @@ pub async fn get_index(
     let dark_subs = subs.iter().filter(|s| s.state == SubredditState::PRIVATE || s.state == SubredditState::RESTRICTED).count();
     let total_subs = subs.len();
     let sections = state.redis_helper.get_sections().await.unwrap();
+    let history = state.redis_helper.get_hist_delta().await.unwrap_or_else(|_| Vec::new());
     let params = Params {
         perc_subs: format!("{:.2}", (dark_subs as f32 / total_subs as f32) * 100.0),
         total_subs,
         dark_subs,
+        history,
         sections: sections.clone(),
         subreddits: sections.into_iter()
             .map(|section| {
@@ -57,5 +61,13 @@ pub async fn get_index(
             .collect(),
     };
 
-    RenderHtml("index", state.engine.clone(), params)
+    let result = state.engine.render("index", params);
+
+    match result {
+        Ok(x) => Html(x).into_response(),
+        Err(x) => {
+            error!("Render error: {:#?}", x);
+            x.into_response()
+        },
+    }
 }
