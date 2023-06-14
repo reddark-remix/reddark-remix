@@ -128,10 +128,9 @@ function handleDeltaUpdate(message) {
     const prevState = subredditStatusElement.innerHTML;
     
     // create status update string
-    var text = `<strong>${message["name"]}</strong> (${message["section"]})<br>`
-        + `${prevState} → <strong>${mappedState}</strong>`;
+    var text = `<strong>${message["name"]}</strong> (${message["section"]})<br>${prevState} → <strong>${mappedState}</strong>`;
     
-    switch (message["state") {
+    switch (message["state"]) {
         case "PRIVATE":
             if (prevState != "restricted") text += "!";
             break;
