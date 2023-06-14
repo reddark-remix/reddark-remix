@@ -120,21 +120,43 @@ function handleDeltaUpdate(message) {
     if (message["name"] in block || block.includes(message["name"])) {
         return;
     }
+    
+    const subredditElement = document.getElementById(message["name"]);
+    const subredditStatusElement = subredditElement.querySelector("p");
 
-    var text = `<strong>${message["name"]}</strong> has gone ${mapState(message["state"])}! (${message["section"]})`;
-
+    const mappedState = mapState(message["state"]);
+    const prevState = subredditStatusElement.innerHTML;
+    
+    // create status update string
+    var text = `<strong>${message["name"]}</strong> (${message["section"]})<br>`
+        + `${prevState} → <strong>${mappedState}</strong>`;
+    
+    switch (message["state") {
+        case "PRIVATE":
+            if (prevState != "restricted") text += "!";
+            break;
+        case "RESTRICTED":
+            if (prevState != "private") text += "!";
+            break;
+        case "PUBLIC":
+            text += " :(";
+            break;
+        default:
+            break;
+    }
+    
     // Send out status update for people not in large counter mode.
     newStatusUpdate(text, function () {
-        doScroll(document.getElementById(message["name"]));
+        doScroll(subredditElement);
     }, ["n" + sectionBaseName(message["section"])]);
 
     // Update state in current view if present.
-    if (document.getElementById(message["name"]) != null) {
-        document.getElementById(message["name"]).querySelector("p").innerHTML = mapState(message["state"]);
+    if (subredditElement != null) {
+        subredditStatusElement.innerHTML = mappedState;
         for (i of ["private", "public", "restricted", "unknown"]) {
-            document.getElementById(message["name"]).classList.remove(`subreddit-${i}`)
+            subredditElement.classList.remove(`subreddit-${i}`)
         }
-        document.getElementById(message["name"]).classList.add(`subreddit-${mapState(message["state"])}`)
+        subredditElement.classList.add(`subreddit-${mappedState}`)
     }
 
     switch (message["state"]) {
@@ -160,7 +182,7 @@ function handleDeltaUpdate(message) {
 
     var history_item = Object.assign(document.createElement("div"), {className: "history-item n" + sectionBaseName(message["section"])});
     var t = new Date().toISOString().replace("T", " ").replace(/\..+/, '');
-    history_item.innerHTML = `<h1><strong>${message["name"]}</strong> has gone ${mapState(message["state"])}! (${message["section"]})</h1><h3>${t}</h3>`;
+    history_item.innerHTML = `<h1><strong>${message["name"]}</strong> has gone ${mappedState}! (${message["section"]})</h1><h3>${t}</h3>`;
 
     switch (message["state"]) {
         case "PUBLIC":
