@@ -125,17 +125,17 @@ function handleDeltaUpdate(message) {
     const subredditStatusElement = subredditElement.querySelector("p");
 
     const mappedState = mapState(message["state"]);
-    const prevState = subredditStatusElement.innerHTML;
+    const prevState = message["previous_state"];
     
     // create status update string
     var text = `<strong>${message["name"]}</strong> (${message["section"]})<br>${prevState} → <strong>${mappedState}</strong>`;
     
     switch (message["state"]) {
         case "PRIVATE":
-            if (prevState != "restricted") text += "!";
+            if (prevState != "RESTRICTED") text += "!";
             break;
         case "RESTRICTED":
-            if (prevState != "private") text += "!";
+            if (prevState != "PRIVATE") text += "!";
             break;
         case "PUBLIC":
             text += " :(";
@@ -162,7 +162,7 @@ function handleDeltaUpdate(message) {
         case "PRIVATE":
         case "RESTRICTED":
             audioSystem.play("privated");
-            switch (subreddit["previous_state"]) {
+            switch (message["previous_state"]) {
                 case "PUBLIC":
                 case "UNKNOWN":
                     totalDarkSubs += 1;
