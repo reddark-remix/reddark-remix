@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.71"
 axum = "0.6.10"
+axum-prometheus = "0.3.3"
 axum-template = { version = "0.18.0", features = ["tera"] }
 clap = { version = "4.3.3", features = ["derive"] }
 futures-util = "0.3.28"

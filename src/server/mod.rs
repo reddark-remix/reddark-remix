@@ -4,6 +4,7 @@ use std::time::Duration;
 use axum::routing::get;
 
 use axum::Server;
+use axum_prometheus::PrometheusMetricLayer;
 use axum_template::engine::Engine;
 use futures_util::{TryStreamExt, TryFutureExt};
 use tera::Tera;
@@ -32,7 +33,7 @@ async fn start_server(redis_helper: RedisHelper, broadcast_channel: broadcast::S
     let serve_dir = ServeDir::new("public")
         .append_index_html_on_directories(true);
 
-
+    let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
 
     let shared_state = Arc::new(AppState {
         broadcast_channel,
@@ -45,6 +46,8 @@ async fn start_server(redis_helper: RedisHelper, broadcast_channel: broadcast::S
         .route("/", get(templ::get_index))
         .route("/sse", get(sse::sse_handler))
         .with_state(shared_state)
+        .route("/metrics", get(|| async move { metric_handle.render() }))
+        .layer(prometheus_layer)
         .layer(TraceLayer::new_for_http());
 
     Ok(
