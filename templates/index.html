@@ -131,8 +131,8 @@
 
 <div class="amount">
     <div class="amount-inner">
-        <input placeholder="Search" type="search" id="search-input" name="search" spellcheck="false"
-               onkeyup="this.value = this.value.replace(/[^\_||^a-z||^\d||^\/]/i, '')">
+        <input placeholder="Search" type="search" id="search-input" name="search" spellcheck="false" autocapitalize="none"
+               onkeyup="this.value = this.value.replace(/[^\_||^a-z||^\d||^\/]/i, '') ">
         <h3 id="amount">
             <strong id="st-dark">{{dark_subs}}</strong><light>/<span id="st-total">{{total_subs}}</span></light> subreddits are currently dark.
         </h3>
@@ -172,5 +172,6 @@
 
 </body>
 <script src="/assets/odometer.js?z=1"></script>
-<script src="/assets/index.js?z=4"></script>
 <script src="/assets/search.js?z=1" defer></script>
+<script src="/assets/index.js?z=4"></script>
+
