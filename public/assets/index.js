@@ -201,6 +201,9 @@ function newEventSource() {
             case "Delta":
                 handleDeltaUpdate(message["content"]);
                 break;
+            case "Reload":
+                window.location.reload();
+                break;
             default:
                 break;
         }
