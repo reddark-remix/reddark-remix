@@ -1,5 +1,6 @@
 use std::num::NonZeroU32;
 use std::time::Duration;
+use chrono::Utc;
 use tracing::{error, info};
 use crate::Cli;
 use crate::reddit::{Reddit, SubredditDelta};
@@ -28,6 +29,7 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU3
                 let mut delta = SubredditDelta {
                     prev_state: subreddit.state.clone(),
                     subreddit: subreddit.clone(),
+                    timestamp: Utc::now(),
                 };
 
                 let state = reddit.get_subreddit_state(&subreddit.name).await?;

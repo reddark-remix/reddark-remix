@@ -28,7 +28,18 @@
         </div>
     </div>
     <div class="large-counter-history" id="counter-history">
-
+        {%- for item in history %}
+        {%- set subreddit = item["subreddit"] %}
+        {%- set basesect = subreddit["section"]|replace(from=" ", to="")|replace(from=":", to="")|replace(from="+", to="")|replace(from=" ", to="")|replace(from="\r", to="")|replace(from="\n", to="") %}
+        <div class="history-item n{{basesect}} {% if subreddit["state"] == "PUBLIC" %}history-item-online{% endif %}">
+            <h1>
+                <strong>{{subreddit["name"]}}</strong>
+                has gone {{subreddit["state"] | lower}}! ({{subreddit["section"]}})
+            </h1>
+        {%- set ts = item["timestamp"]|replace(from="T", to=" ")|split(pat=".") %}
+        <h3>{{ts[0]}}</h3>
+        </div>
+        {%- endfor %}
     </div>
 </div>
 
@@ -103,6 +114,21 @@
             </div>
         </div>
         <div>
+            <h3>Reddark socials</h3>
+            <div class="section-grid">
+                <div class="team">
+                    <a href="https://twitch.tv/reddark_247">Twitch</a>
+                    <p>twitch.tv/reddark_247</p>
+                </div>
+                <div class="team">
+                    <a href="https://twitter.com/reddark_247">Twitter</a>
+                    <p>twitter.com/reddark_247</p>
+                </div>
+                <div class="team">
+                    <a href="https://discord.gg/reddark">Discord</a>
+                    <p>discord.gg/reddark</p>
+                </div>
+            </div>
             <h3>Third party instances</h3>
             <p>In case this site is down, these are some third party instances you can use instead. These aren't hosted
                 by
@@ -131,8 +157,13 @@
 
 <div class="amount">
     <div class="amount-inner">
+<<<<<<< HEAD
         <input placeholder="Search" type="search" id="search-input" name="search" spellcheck="false" autocapitalize="none"
                onkeyup="this.value = this.value.replace(/[^\_||^a-z||^\d||^\/]/i, '') ">
+=======
+        <input placeholder="Search" type="search" id="search-input" name="search" spellcheck="false"
+               onkeyto="this.value = this.value.replace(/[^\_||^a-z||^\d||^\/]/i, '')">
+>>>>>>> 6f3c2903c4dbdc9ff21a2c172a2e1a886cf6884e
         <h3 id="amount">
             <strong id="st-dark">{{dark_subs}}</strong><light>/<span id="st-total">{{total_subs}}</span></light> subreddits are currently dark.
         </h3>
