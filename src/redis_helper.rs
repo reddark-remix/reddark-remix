@@ -106,3 +106,14 @@ pub async fn new_delta_stream(cli: &Cli) -> Result<impl TryStream<Ok = Subreddit
     });
     Ok(s)
 }
+
+pub async fn new_reload_stream(cli: &Cli) -> Result<impl TryStream<Ok = (), Error = anyhow::Error>> {
+    let mut pubsub = cli.new_redis_pubsub().await?;
+    pubsub.subscribe("reload").await?;
+    let s = pubsub.into_on_message();
+    let s = s.map(|item: Msg| {
+        item.get_payload()?;
+        anyhow::Ok(())
+    });
+    Ok(s)
+}

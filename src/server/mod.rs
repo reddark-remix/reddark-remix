@@ -99,6 +99,19 @@ async fn start_pubsub(cli: &crate::Cli, broadcast_channel: broadcast::Sender<Pus
     })
 }
 
+async fn start_reload_pubsub(cli: &crate::Cli, broadcast_channel: broadcast::Sender<PushMessage>) -> anyhow::Result<impl Future<Output=anyhow::Result<()>>> {
+    let mut stream = crate::redis_helper::new_reload_stream(cli).await?;
+    Ok(async move {
+        while let Some(_) = stream.try_next().await? {
+            let message = PushMessage::Reload {};
+            broadcast_channel.send(message)?;
+        }
+
+        anyhow::Ok(())
+    })
+}
+
+
 pub async fn server(cli: &crate::Cli, listen: &str) -> anyhow::Result<()> {
     info!("Starting server");
     let redis_helper = RedisHelper::new(cli).await?;
@@ -108,9 +121,13 @@ pub async fn server(cli: &crate::Cli, listen: &str) -> anyhow::Result<()> {
     let server = start_server(redis_helper.clone(), broadcast_channel.clone(), listen).await?;
     let periodic_subreddits = start_periodic_job(redis_helper.clone(), broadcast_channel.clone()).await?;
     let pubsub = start_pubsub(cli, broadcast_channel.clone()).await?;
+    let reload_pubsub = start_reload_pubsub(cli, broadcast_channel.clone()).await?;
 
     tokio::select! {
         val = pubsub => {
+            val?;
+        }
+        val = reload_pubsub => {
             val?;
         }
         val = server => {
