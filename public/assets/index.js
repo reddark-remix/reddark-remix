@@ -117,7 +117,7 @@ function handleStateUpdate(message) {
 }
 
 function handleDeltaUpdate(message) {
-    if (message["name"] in block && block.includes(message["name"])) {
+    if (message["name"] in block || block.includes(message["name"])) {
         return;
     }
 
