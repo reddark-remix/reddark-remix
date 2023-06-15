@@ -7,7 +7,7 @@ var audioSystem = {
     }
 }
 
-var block = ["r/bi_irl", "r/suddenlybi", "r/ennnnnnnnnnnnbbbbbby", "r/feemagers", "r/BrexitAteMyFace", "r/emoney", "r/Inzaghi"];
+var block = ["r/gtafk","r/bi_irl", "r/suddenlybi", "r/ennnnnnnnnnnnbbbbbby", "r/feemagers", "r/BrexitAteMyFace", "r/emoney", "r/Inzaghi"];
 
 document.getElementById("enable_sounds").addEventListener("click", function () {
     if (!audioSystem.playAudio) {
@@ -67,6 +67,8 @@ function sectionBaseName(section) {
 }
 
 var totalDarkSubs = parseInt(document.getElementById("lc-count").innerText);
+var totalPrivateSubs = 0;
+var totalUnlistedSubs = 0;
 var totalSubs = parseInt(document.getElementById("lc-total").innerText);
 
 function updateStatusText() {
@@ -75,6 +77,7 @@ function updateStatusText() {
     od.update(totalDarkSubs);
     document.getElementById("lc-total").innerText = totalSubs;
 
+    var percentage = ((totalDarkSubs / totalSubs) * 100).toFixed(2);
     var percentage = ((totalDarkSubs / totalSubs) * 100).toFixed(2);
     od_percentage.update(percentage);
     od_togo.update(totalSubs - totalDarkSubs);
