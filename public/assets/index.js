@@ -210,6 +210,8 @@ function newEventSource() {
             default:
                 break;
         }
+    // Maintain filters by search params after event triggered state update
+    filterBySearch();
     }
 
     return eventSource;
@@ -220,6 +222,8 @@ function hidePublicSubreddits() {
     document.getElementById("list").classList.toggle("hide-public");
     document.getElementById("hide-public").classList.toggle("toggle-enabled");
     document.getElementById("hide-private").classList.remove("toggle-enabled");
+    // Provide same behavior as search when section is all hidden
+    handleHeaders();
 }
 
 function hidePrivateSubreddits() {
@@ -227,6 +231,8 @@ function hidePrivateSubreddits() {
     document.getElementById("list").classList.toggle("hide-private");
     document.getElementById("hide-private").classList.toggle("toggle-enabled");
     document.getElementById("hide-public").classList.remove("toggle-enabled");
+    // Provide same behavior as search when section is all hidden
+    handleHeaders();
 }
 
 
