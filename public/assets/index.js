@@ -9,6 +9,8 @@ var audioSystem = {
 
 var block = ["r/gtafk","r/bi_irl", "r/suddenlybi", "r/ennnnnnnnnnnnbbbbbby", "r/feemagers", "r/BrexitAteMyFace", "r/emoney", "r/Inzaghi"];
 
+var blackedOutStates = ["PRIVATE", "RESTRICTED"];
+
 document.getElementById("enable_sounds").addEventListener("click", function () {
     if (!audioSystem.playAudio) {
         this.innerHTML = "Disable sound alerts"
@@ -124,7 +126,9 @@ function handleDeltaUpdate(message) {
         return;
     }
 
-    var text = `<strong>${message["name"]}</strong> has gone ${mapState(message["state"])}! (${message["section"]})`;
+    // True if swapped between PRIVATE and RESTRICTED, false if not
+    var swapped = (blackedOutStates.includes(message["state"]) && blackedOutStates.includes(message["previous_state"]));
+    var text = `<strong>${message["name"]}</strong> ${swapped ? 'swapped to' : 'has gone'} ${mapState(message["state"])}! (${message["section"]})`;
 
     // Send out status update for people not in large counter mode.
     newStatusUpdate(text, function () {
@@ -163,7 +167,7 @@ function handleDeltaUpdate(message) {
 
     var history_item = Object.assign(document.createElement("div"), {className: "history-item n" + sectionBaseName(message["section"])});
     var t = new Date().toISOString().replace("T", " ").replace(/\..+/, '');
-    history_item.innerHTML = `<h1><strong>${message["name"]}</strong> has gone ${mapState(message["state"])}! (${message["section"]})</h1><h3>${t}</h3>`;
+    history_item.innerHTML = `<h1>${text}</h1><h3>${t}</h3>`;
 
     switch (message["state"]) {
         case "PUBLIC":

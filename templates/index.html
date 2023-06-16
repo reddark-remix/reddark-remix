@@ -28,13 +28,19 @@
         </div>
     </div>
     <div class="large-counter-history" id="counter-history">
+        {%- set blacked_out_states = ["PRIVATE", "RESTRICTED"] %}
         {%- for item in history %}
         {%- set subreddit = item["subreddit"] %}
         {%- set basesect = subreddit["section"]|replace(from=" ", to="")|replace(from=":", to="")|replace(from="+", to="")|replace(from=" ", to="")|replace(from="\r", to="")|replace(from="\n", to="") %}
         <div class="history-item n{{basesect}} {% if subreddit["state"] == "PUBLIC" %}history-item-online{% endif %}">
             <h1>
                 <strong>{{subreddit["name"]}}</strong>
-                has gone {{subreddit["state"] | lower}}! ({{subreddit["section"]}})
+                {%- if blacked_out_states is containing(subreddit["state"]) and blacked_out_states is containing(item["prev_state"]) %}
+                 swapped to 
+                {% else %}
+                 has gone 
+                {% endif -%}
+                {{subreddit["state"] | lower}}! ({{subreddit["section"]}})
             </h1>
         {%- set ts = item["timestamp"]|replace(from="T", to=" ")|split(pat=".") %}
         <h3>{{ts[0]}}</h3>
