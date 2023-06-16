@@ -43,7 +43,7 @@
                 {{subreddit["state"] | lower}}! ({{subreddit["section"]}})
             </h1>
         {%- set ts = item["timestamp"]|replace(from="T", to=" ")|split(pat=".") %}
-        <h3>{{ts[0]}}</h3>
+        <h3>{{ts[0]}} | was {{item["prev_state"] | lower}}</h3>
         </div>
         {%- endfor %}
     </div>
