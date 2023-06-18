@@ -167,7 +167,11 @@ function handleDeltaUpdate(message) {
 
     var history_item = Object.assign(document.createElement("div"), {className: "history-item n" + sectionBaseName(message["section"])});
     var t = new Date().toISOString().replace("T", " ").replace(/\..+/, '');
-    history_item.innerHTML = `<h1>${text}</h1><h3>${t} | was ${mapState(message["previous_state"])}</h3>`;
+    var last = '';
+    if (message["previous_state"] != "UNKNOWN") {
+        last = ` | was ${mapState(message["previous_state"])}`;
+    }
+    history_item.innerHTML = `<h1>${text}</h1><h3>${t}${last}</h3>`;
 
     switch (message["state"]) {
         case "PUBLIC":
