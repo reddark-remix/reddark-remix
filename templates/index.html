@@ -6,13 +6,13 @@
     <title>Reddark</title>
     <meta name="google-site-verification" content="U_FcRrVYPOtB9T7cs7klW5ioWQhkLbKyWH3H8AGK_es"/>
     <meta name="description" content="An open source website to watch subreddits going dark">
-    <link rel="stylesheet" href="/assets/index.css?z=1">
+    <link rel="stylesheet" href="/assets/index.css?z=2">
     <link rel="icon"
           href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 115 115%22><text y=%22.9em%22 font-size=%2290%22>✊</text></svg>">
 </head>
 <body>
 <div class="large-counter large-counter-hidden" id="large-counter">
-    <div class="large-counter-close" onclick="toggleLargeCounter()">X</div>
+    <button class="large-counter-close" onclick="toggleLargeCounter()">X</button>
     <div class="large-counter-inner">
         <h1><span class="odemeter" id="lc-count">{{dark_subs}}</span><small id="lc-max"> <light>out of</light> <span id="lc-total">{{total_subs}}</span></small></h1>
         <div class="progress">
@@ -150,17 +150,17 @@
 
 <div class="tools">
     <div class="tools-inner">
-        <div class="toggle" onclick="hidePublicSubreddits()" id="hide-public">
+        <button class="toggle" onclick="hidePublicSubreddits()" id="hide-public">
             <div class="toggle-box"></div>
             <p>Hide public subreddits</p>
-        </div>
-        <div class="toggle" onclick="hidePrivateSubreddits()" id="hide-private">
+        </button>
+        <button class="toggle" onclick="hidePrivateSubreddits()" id="hide-private">
             <div class="toggle-box"></div>
             <p>Hide private subreddits</p>
-        </div>
+        </button>
         <div class="tools-left">
-            <div class="button" onclick="toggleLargeCounter()">Large counter</div>
-            <div class="button" id="enable_sounds">Enable sound alerts</div>
+            <button class="button" onclick="toggleLargeCounter()">Large counter</button>
+            <button class="button" id="enable_sounds">Enable sound alerts</button>
         </div>
     </div>
 </div>
