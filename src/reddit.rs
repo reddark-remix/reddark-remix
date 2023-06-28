@@ -1,5 +1,4 @@
 use std::num::NonZeroU32;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use governor::{clock, Jitter, Quota, RateLimiter};
@@ -7,7 +6,6 @@ use governor::middleware::NoOpMiddleware;
 use governor::state::{InMemoryState, NotKeyed};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -30,19 +28,6 @@ impl SubredditState {
     }
 }
 
-impl FromStr for SubredditState {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "public" => Ok(SubredditState::PUBLIC),
-            "restricted" => Ok(SubredditState::PRIVATE),
-            "private" => Ok(SubredditState::PRIVATE),
-            _ => Ok(SubredditState::UNKNOWN),
-        }
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize, Ord, PartialOrd, PartialEq, Eq)]
 pub struct Subreddit {
     pub name: String,
@@ -52,7 +37,7 @@ pub struct Subreddit {
 
 impl Subreddit {
     pub fn safe_name(&self) -> String {
-        self.name.replace(|c: char| !c.is_alphanumeric(), "_").to_string()
+        self.name.replace(|c:char| !c.is_alphanumeric(), "_").to_string()
     }
 
     // pub fn is_private(&self) -> bool {
@@ -71,16 +56,6 @@ pub struct SubredditDelta {
     pub timestamp: DateTime<Utc>,
 }
 
-impl From<Subreddit> for SubredditDelta {
-    fn from(value: Subreddit) -> Self {
-        Self {
-            prev_state: value.state,
-            subreddit: value,
-            timestamp: Utc::now(),
-        }
-    }
-}
-
 pub struct Reddit {
     limiter: RateLimiter<NotKeyed, InMemoryState, clock::DefaultClock, NoOpMiddleware>,
 }
@@ -96,17 +71,12 @@ impl Reddit {
         });
     }
 
-    async fn make_request<T: Serialize + Sized>(&self, rel_url: &str, query: Option<&[T]>) -> Result<reqwest::Response> {
+    async fn make_request(&self, rel_url: &str) -> Result<reqwest::Response> {
         self.limiter.until_ready_with_jitter(Jitter::up_to(Duration::from_millis(1))).await;
         let client = reqwest::Client::builder();
         let client = client.user_agent("Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/114.0");
         let client = client.build()?;
         let req = client.get(format!("https://old.reddit.com/{}", rel_url));
-        let req = if let Some(q) = query {
-            req.query(q)
-        } else {
-            req
-        };
         let req = req.header("Range", "bytes=0-50");
         //info!("Sending request! {req:?}");
         let resp = req.send().await?;
@@ -120,7 +90,7 @@ impl Reddit {
 
     pub async fn get_subreddit_state(&self, name: &str) -> Result<SubredditState> {
         let u = format!("{}/about.json", name);
-        let resp = self.make_request::<()>(&u, None).await?;
+        let resp = self.make_request(&u).await?;
         let data: serde_json::Value = resp.json().await?;
         if let Some(reason) = data.get("reason") {
             let is_private = reason.as_str().unwrap_or("") == "private" || reason.as_str().unwrap_or("") == "banned";
@@ -147,38 +117,8 @@ impl Reddit {
         }
     }
 
-    pub async fn get_subreddit_state_bulk<T: ToString>(&self, names: &[T]) -> Result<Vec<SubredditState>> {
-        if names.len() > 100 {
-            return Err(anyhow::anyhow!("Too many names passed!"));
-        }
-        let query = [("sr_name", names.iter().map(|n| n.to_string().trim_start_matches("r/").trim().to_string()).join(","))];
-        let resp = self.make_request("api/info.json", Some(&query)).await?;
-        let data: serde_json::Value = resp.json().await?;
-        let data = data
-            .get("data")
-            .ok_or_else(|| anyhow::anyhow!("No data element"))?
-            .get("children")
-            .ok_or_else(|| anyhow::anyhow!("No children element"))?
-            .as_array()
-            .ok_or_else(|| anyhow::anyhow!("Children is not array"))?;
-        Ok(data.iter()
-            .map(|v| {
-                let state = v
-                    .get("data")
-                    .ok_or_else(|| anyhow::anyhow!("No data field in sr"))?
-                    .get("subreddit_type")
-                    .ok_or_else(|| anyhow::anyhow!("No subreddit type"))?
-                    .as_str()
-                    .ok_or_else(|| anyhow::anyhow!("Subreddit type is not a string"))?;
-
-                anyhow::Ok(SubredditState::from_str(state)?)
-            })
-            .map(|r| r.unwrap_or(SubredditState::UNKNOWN))
-            .collect::<Vec<SubredditState>>())
-    }
-
     pub async fn fetch_subreddits(&self) -> Result<(Vec<String>, Vec<Subreddit>)> {
-        let resp = self.make_request::<()>("/r/ModCoord/wiki/index.json", None).await?;
+        let resp = self.make_request("/r/ModCoord/wiki/index.json").await?;
         let data: serde_json::Value = resp.json().await?;
         let text = data.get("data").and_then(|v| v.get("content_md")).ok_or(anyhow::anyhow!("Couldn't get content_md!"))?;
         let text = text.as_str().ok_or(anyhow::anyhow!("Can't parse text"))?;

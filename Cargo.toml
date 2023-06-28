@@ -14,7 +14,6 @@ chrono = { version = "0.4.26", features = ["serde"] }
 clap = { version = "4.3.3", features = ["derive"] }
 futures-util = "0.3.28"
 governor = "0.5.1"
-itertools = "0.11.0"
 nonzero_ext = "0.3.0"
 redis = { version = "0.23.0", features = ["tokio-rustls-comp"] }
 reqwest = { version = "0.11.18", features = ["rustls-tls-webpki-roots", "json"], default-features = false }
