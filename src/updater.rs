@@ -17,7 +17,7 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU3
         let redis_subreddits = redis_helper.get_current_state().await?;
 
         // Spawn out all the subreddits.
-        let fns = redis_subreddits.into_iter().chunks(50).into_iter().map(|subreddits| {
+        let fns = redis_subreddits.into_iter().chunks(100).into_iter().map(|subreddits| {
             let reddit = reddit.clone();
             let redis_helper = redis_helper.clone();
             let subreddits: Vec<Subreddit> = subreddits.collect();
