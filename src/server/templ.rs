@@ -7,7 +7,7 @@ use axum_template::TemplateEngine;
 use serde::Serialize;
 use tera::Tera;
 use tracing::error;
-use crate::reddit::{SubredditDelta, SubredditState};
+use crate::reddit::SubredditDelta;
 use crate::server::{AppEngine, AppState};
 
 #[derive(Serialize, Debug)]
@@ -36,7 +36,7 @@ pub async fn get_index(
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
     let subs = state.redis_helper.get_current_state().await.unwrap();
-    let dark_subs = subs.iter().filter(|s| s.state == SubredditState::PRIVATE || s.state == SubredditState::RESTRICTED).count();
+    let dark_subs = subs.iter().filter(|s| s.is_private()).count();
     let total_subs = subs.len();
     let sections = state.redis_helper.get_sections().await.unwrap();
     let history = state.redis_helper.get_hist_delta().await.unwrap_or_else(|_| Vec::new());

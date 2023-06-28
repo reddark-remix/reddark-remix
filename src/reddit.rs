@@ -10,6 +10,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tracing::info;
 
 #[derive(Clone, Debug, Copy, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,6 +19,7 @@ pub enum SubredditState {
     PRIVATE,
     PUBLIC,
     ARCHIVED,
+    OLIVER,
     RESTRICTED,
 }
 
@@ -29,6 +31,7 @@ impl SubredditState {
             SubredditState::PUBLIC => "public".to_string(),
             SubredditState::RESTRICTED => "restricted".to_string(),
             SubredditState::ARCHIVED => "archived".to_string(),
+            SubredditState::OLIVER => "oliver".to_string(),
         }
     }
 }
@@ -59,13 +62,16 @@ impl Subreddit {
         self.name.replace(|c: char| !c.is_alphanumeric(), "_").to_string()
     }
 
-    // pub fn is_private(&self) -> bool {
-    //     match self.state {
-    //         SubredditState::UNKNOWN => false,
-    //         SubredditState::PRIVATE => true,
-    //         SubredditState::PUBLIC => false,
-    //     }
-    // }
+    pub fn is_private(&self) -> bool {
+        match self.state {
+            SubredditState::UNKNOWN => false,
+            SubredditState::PRIVATE => true,
+            SubredditState::PUBLIC => false,
+            SubredditState::ARCHIVED => true,
+            SubredditState::OLIVER => true,
+            SubredditState::RESTRICTED => true,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -98,6 +104,17 @@ impl Reddit {
         return Arc::new(Reddit {
             limiter,
         });
+    }
+
+    pub async fn get_oliver_list(&self) -> Result<Vec<String>> {
+        let data = reqwest::get("https://raw.githubusercontent.com/username-is-required/reddark-subinfo/main/john-oliver-subs.json").await?;
+        let data: Value = data.json().await?;
+        let data = data.get("johnOliverSubs").ok_or_else(|| anyhow::anyhow!("Unable to find element"))?;
+        let data = data.as_array().ok_or_else(|| anyhow::anyhow!("Element is not array"))?;
+        let data = data.iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
+        Ok(data)
     }
 
     async fn make_request<T: Serialize + Sized>(&self, rel_url: &str, query: Option<&[T]>) -> Result<reqwest::Response> {
@@ -170,7 +187,7 @@ impl Reddit {
                 let sub = v
                     .get("data")
                     .ok_or_else(|| anyhow::anyhow!("No data field in sr"))?;
-                    let state = sub.get("subreddit_type")
+                let state = sub.get("subreddit_type")
                     .ok_or_else(|| anyhow::anyhow!("No subreddit type"))?
                     .as_str()
                     .ok_or_else(|| anyhow::anyhow!("Subreddit type is not a string"))?;

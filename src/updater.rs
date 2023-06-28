@@ -16,11 +16,15 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU3
         let start = std::time::Instant::now();
         let redis_subreddits = redis_helper.get_current_state().await?;
 
+        let oliver_subs = reddit.get_oliver_list().await?;
+        let oliver_subs = oliver_subs.into_iter().map(|s| s.to_lowercase().to_string()).collect::<Vec<String>>();
+
         // Spawn out all the subreddits.
         let fns = redis_subreddits.into_iter().chunks(100).into_iter().map(|subreddits| {
             let reddit = reddit.clone();
             let redis_helper = redis_helper.clone();
             let subreddits: Vec<Subreddit> = subreddits.collect();
+            let oliver_subs = oliver_subs.clone();
 
             let name = subreddits.iter().map(|s| &s.name).join(",");
 
@@ -30,9 +34,10 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU3
                 let states = reddit.get_subreddit_state_bulk(&srs).await?;
 
                 for prev_state in subreddits.iter() {
+                    let lname = prev_state.name.to_lowercase();
                     let mut delta = SubredditDelta::from(prev_state.clone());
-                    let state = states.get(&prev_state.name.to_lowercase()).cloned().unwrap_or(SubredditState::UNKNOWN);
-                    delta.subreddit.state = state;
+                    let state = states.get(&lname).cloned().unwrap_or(SubredditState::UNKNOWN);
+                    delta.subreddit.state = if oliver_subs.contains(&lname) { SubredditState::OLIVER } else { state };
 
                     if delta.prev_state != delta.subreddit.state {
                         info!("Change happend! Subreddit {} has gone from {:?} to {:?}.", delta.subreddit.name, delta.prev_state, delta.subreddit.state);
@@ -69,7 +74,7 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU3
             info!("Awaiting tick...");
             t.tick().await;
         } else {
-            break
+            break;
         }
     }
 

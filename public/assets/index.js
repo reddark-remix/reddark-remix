@@ -60,6 +60,8 @@ function mapState(state) {
             return "restricted";
         case "ARCHIVED":
             return "archived";
+        case "OLIVER":
+            return "oliver";
         default:
             return "unknown";
     }
@@ -96,6 +98,8 @@ function handleStateUpdate(message) {
         switch (subreddit["state"]) {
             case "PRIVATE":
             case "RESTRICTED":
+            case "ARCHIVED":
+            case "OLIVER":
                 totalDarkSubs += 1;
                 break;
             default:
@@ -149,10 +153,14 @@ function handleDeltaUpdate(message) {
     switch (message["state"]) {
         case "PRIVATE":
         case "RESTRICTED":
+        case "ARCHIVED":
+        case "OLIVER":
             audioSystem.play("privated");
             switch (subreddit["previous_state"]) {
                 case "PUBLIC":
                 case "UNKNOWN":
+                case "ARCHIVED":
+                case "OLIVER":
                     totalDarkSubs += 1;
                     break;
                 default:
