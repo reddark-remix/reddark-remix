@@ -215,7 +215,9 @@ function newEventSource() {
                 handleDeltaUpdate(message["content"]);
                 break;
             case "Reload":
-                window.location.reload();
+                setTimeout(() => {
+                    window.location.reload();
+                }, Math.floor(Math.random() * 20000));
                 break;
             default:
                 break;
