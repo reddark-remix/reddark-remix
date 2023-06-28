@@ -36,7 +36,7 @@ impl FromStr for SubredditState {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s {
             "public" => Ok(SubredditState::PUBLIC),
-            "restricted" => Ok(SubredditState::RESTRICTED),
+            "restricted" => Ok(SubredditState::PRIVATE),
             "private" => Ok(SubredditState::PRIVATE),
             _ => Ok(SubredditState::UNKNOWN),
         }
