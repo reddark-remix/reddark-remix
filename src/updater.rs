@@ -1,9 +1,9 @@
 use std::num::NonZeroU32;
 use std::time::Duration;
-use chrono::Utc;
+use itertools::Itertools;
 use tracing::{error, info};
 use crate::Cli;
-use crate::reddit::{Reddit, SubredditDelta};
+use crate::reddit::{Reddit, Subreddit, SubredditDelta};
 use crate::redis_helper::RedisHelper;
 
 pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU32>) -> anyhow::Result<()> {
@@ -17,30 +17,29 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU3
         let redis_subreddits = redis_helper.get_current_state().await?;
 
         // Spawn out all the subreddits.
-        let fns = redis_subreddits.into_iter().map(|subreddit| {
+        let fns = redis_subreddits.into_iter().chunks(100).into_iter().map(|subreddits| {
             let reddit = reddit.clone();
             let redis_helper = redis_helper.clone();
+            let subreddits: Vec<Subreddit> = subreddits.collect();
 
-            let name = subreddit.name.clone();
+            let name = subreddits.iter().map(|s| &s.name).join(",");
 
             let f = async move {
-                info!("Updating subreddit {}...", subreddit.name);
+                let srs: Vec<String> = subreddits.iter().map(|s| s.name.to_string()).collect();
+                info!("Updating subreddits {}...", srs.join(","));
+                let states = reddit.get_subreddit_state_bulk(&srs).await?;
 
-                let mut delta = SubredditDelta {
-                    prev_state: subreddit.state.clone(),
-                    subreddit: subreddit.clone(),
-                    timestamp: Utc::now(),
-                };
+                for (i, state) in states.into_iter().enumerate() {
+                    let prev_state = &subreddits[i];
+                    let mut delta = SubredditDelta::from(prev_state.clone());
+                    delta.subreddit.state = state;
 
-                let state = reddit.get_subreddit_state(&subreddit.name).await?;
+                    if delta.prev_state != delta.subreddit.state {
+                        info!("Change happend! Subreddit {} has gone from {:?} to {:?}.", delta.subreddit.name, delta.prev_state, delta.subreddit.state);
+                    }
 
-                delta.subreddit.state = state;
-
-                if delta.prev_state != delta.subreddit.state {
-                    info!("Change happend! Subreddit {} has gone from {:?} to {:?}.", delta.subreddit.name, delta.prev_state, delta.subreddit.state);
+                    redis_helper.apply_delta(&delta).await?;
                 }
-
-                redis_helper.apply_delta(&delta).await?;
 
                 anyhow::Ok(())
             };
