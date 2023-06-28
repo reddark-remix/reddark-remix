@@ -28,7 +28,7 @@
         </div>
     </div>
     <div class="large-counter-history" id="counter-history">
-        {%- set blacked_out_states = ["PRIVATE", "RESTRICTED"] %}
+        {%- set blacked_out_states = ["PRIVATE", "RESTRICTED", "OLIVER", "ARCHIVED"] %}
         {%- for item in history %}
         {%- set subreddit = item["subreddit"] %}
         {%- set basesect = subreddit["section"]|replace(from=" ", to="")|replace(from=":", to="")|replace(from="+", to="")|replace(from=" ", to="")|replace(from="\r", to="")|replace(from="\n", to="") %}

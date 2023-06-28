@@ -9,7 +9,7 @@ var audioSystem = {
 
 var block = ["r/gtafk","r/bi_irl", "r/suddenlybi", "r/ennnnnnnnnnnnbbbbbby", "r/feemagers", "r/BrexitAteMyFace", "r/emoney", "r/Inzaghi"];
 
-var blackedOutStates = ["PRIVATE", "RESTRICTED"];
+var blackedOutStates = ["PRIVATE", "RESTRICTED", "OLIVER", "ARCHIVED"];
 
 document.getElementById("enable_sounds").addEventListener("click", function () {
     if (!audioSystem.playAudio) {
