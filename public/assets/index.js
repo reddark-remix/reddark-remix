@@ -58,6 +58,8 @@ function mapState(state) {
             return "private";
         case "RESTRICTED":
             return "restricted";
+        case "ARCHIVED":
+            return "archived";
         default:
             return "unknown";
     }

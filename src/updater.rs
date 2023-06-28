@@ -3,7 +3,7 @@ use std::time::Duration;
 use itertools::Itertools;
 use tracing::{error, info};
 use crate::Cli;
-use crate::reddit::{Reddit, Subreddit, SubredditDelta};
+use crate::reddit::{Reddit, Subreddit, SubredditDelta, SubredditState};
 use crate::redis_helper::RedisHelper;
 
 pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU32>) -> anyhow::Result<()> {
@@ -17,7 +17,7 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU3
         let redis_subreddits = redis_helper.get_current_state().await?;
 
         // Spawn out all the subreddits.
-        let fns = redis_subreddits.into_iter().chunks(100).into_iter().map(|subreddits| {
+        let fns = redis_subreddits.into_iter().chunks(50).into_iter().map(|subreddits| {
             let reddit = reddit.clone();
             let redis_helper = redis_helper.clone();
             let subreddits: Vec<Subreddit> = subreddits.collect();
@@ -29,9 +29,9 @@ pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU3
                 info!("Updating subreddits {}...", srs.join(","));
                 let states = reddit.get_subreddit_state_bulk(&srs).await?;
 
-                for (i, state) in states.into_iter().enumerate() {
-                    let prev_state = &subreddits[i];
+                for prev_state in subreddits.iter() {
                     let mut delta = SubredditDelta::from(prev_state.clone());
+                    let state = states.get(&prev_state.name.to_lowercase()).cloned().unwrap_or(SubredditState::UNKNOWN);
                     delta.subreddit.state = state;
 
                     if delta.prev_state != delta.subreddit.state {

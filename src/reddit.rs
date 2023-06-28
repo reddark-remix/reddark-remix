@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -16,6 +17,7 @@ pub enum SubredditState {
     UNKNOWN,
     PRIVATE,
     PUBLIC,
+    ARCHIVED,
     RESTRICTED,
 }
 
@@ -26,6 +28,7 @@ impl SubredditState {
             SubredditState::PRIVATE => "private".to_string(),
             SubredditState::PUBLIC => "public".to_string(),
             SubredditState::RESTRICTED => "restricted".to_string(),
+            SubredditState::ARCHIVED => "archived".to_string(),
         }
     }
 }
@@ -38,7 +41,8 @@ impl FromStr for SubredditState {
             "public" => Ok(SubredditState::PUBLIC),
             "restricted" => Ok(SubredditState::RESTRICTED),
             "private" => Ok(SubredditState::PRIVATE),
-            _ => Ok(SubredditState::UNKNOWN),
+            "archived" => Ok(SubredditState::ARCHIVED),
+            _ => Err(anyhow::anyhow!("No known state: {s}")),
         }
     }
 }
@@ -147,7 +151,7 @@ impl Reddit {
         }
     }
 
-    pub async fn get_subreddit_state_bulk<T: ToString>(&self, names: &[T]) -> Result<Vec<SubredditState>> {
+    pub async fn get_subreddit_state_bulk<T: ToString>(&self, names: &[T]) -> Result<BTreeMap<String, SubredditState>> {
         if names.len() > 100 {
             return Err(anyhow::anyhow!("Too many names passed!"));
         }
@@ -161,20 +165,23 @@ impl Reddit {
             .ok_or_else(|| anyhow::anyhow!("No children element"))?
             .as_array()
             .ok_or_else(|| anyhow::anyhow!("Children is not array"))?;
-        Ok(data.iter()
+        data.iter()
             .map(|v| {
-                let state = v
+                let sub = v
                     .get("data")
-                    .ok_or_else(|| anyhow::anyhow!("No data field in sr"))?
-                    .get("subreddit_type")
+                    .ok_or_else(|| anyhow::anyhow!("No data field in sr"))?;
+                    let state = sub.get("subreddit_type")
                     .ok_or_else(|| anyhow::anyhow!("No subreddit type"))?
                     .as_str()
                     .ok_or_else(|| anyhow::anyhow!("Subreddit type is not a string"))?;
+                let name = sub.get("display_name_prefixed")
+                    .ok_or_else(|| anyhow::anyhow!("No subreddit display_name"))?
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("Subreddit display_name is not a string"))?;
 
-                anyhow::Ok(SubredditState::from_str(state)?)
+                anyhow::Ok((name.to_lowercase().to_string(), SubredditState::from_str(state)?))
             })
-            .map(|r| r.unwrap_or(SubredditState::UNKNOWN))
-            .collect::<Vec<SubredditState>>())
+            .collect()
     }
 
     pub async fn fetch_subreddits(&self) -> Result<(Vec<String>, Vec<Subreddit>)> {
