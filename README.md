@@ -32,3 +32,9 @@ cargo run --release -- server
 The latter process stays running. The other two exit.
 Run the updater again to process updated status and get events to fire to frontend.
 If you want to edit the templates, you have to restart the webserver after each edit.
+
+To keep the updater running, you can use the `--period` parameter to define how often polling is done in seconds.
+```sh
+cargo run --release -- updater --rate-limit 500 --period 30
+```
+Unlike before, this will keep running and repeat every 30 seconds.
