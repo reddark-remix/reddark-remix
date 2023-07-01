@@ -4,9 +4,9 @@ use axum::extract::State;
 use axum::response::{Html, IntoResponse};
 use axum_template::engine::Engine;
 use axum_template::TemplateEngine;
+use cached::proc_macro::cached;
 use serde::Serialize;
 use tera::Tera;
-use tracing::error;
 use crate::reddit::{SubredditDelta, SubredditState};
 use crate::server::{AppEngine, AppState};
 
@@ -35,9 +35,8 @@ pub async fn make_app_engine() -> anyhow::Result<AppEngine> {
     Ok(Engine::from(tera))
 }
 
-pub async fn get_index(
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
+#[cached(time = 30, sync_writes = true, key = "String", convert = r#"{ "A".to_string() }"#)]
+async fn render_index(state: Arc<AppState>) -> String {
     let subs = state.redis_helper.get_current_state().await.unwrap();
     let dark_subs = subs.iter().filter(|s| s.state.is_dark()).count();
     let total_subs = subs.len();
@@ -67,13 +66,11 @@ pub async fn get_index(
         state_map: SubredditState::state_map(),
     };
 
-    let result = state.engine.render("index", params);
+    state.engine.render("index", params).unwrap()
+}
 
-    match result {
-        Ok(x) => Html(x).into_response(),
-        Err(x) => {
-            error!("Render error: {:#?}", x);
-            x.into_response()
-        },
-    }
+pub async fn get_index(
+    State(state): State<Arc<AppState>>,
+) -> impl IntoResponse {
+    Html(render_index(state).await).into_response()
 }
