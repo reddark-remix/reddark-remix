@@ -28,14 +28,13 @@
         </div>
     </div>
     <div class="large-counter-history" id="counter-history">
-        {%- set blacked_out_states = ["PRIVATE", "RESTRICTED", "OLIVER", "ARCHIVED"] %}
         {%- for item in history %}
         {%- set subreddit = item["subreddit"] %}
         {%- set basesect = subreddit["section"]|replace(from=" ", to="")|replace(from=":", to="")|replace(from="+", to="")|replace(from=" ", to="")|replace(from="\r", to="")|replace(from="\n", to="") %}
         <div class="history-item n{{basesect}} {% if subreddit["state"] == "PUBLIC" %}history-item-online{% endif %}">
             <h1>
                 <strong>{{subreddit["name"]}}</strong>
-                {%- if blacked_out_states is containing(subreddit["state"]) and blacked_out_states is containing(item["prev_state"]) %}
+                {%- if dark_states is containing(subreddit["state"]) and dark_states is containing(item["prev_state"]) %}
                  swapped to 
                 {% else %}
                  has gone 
@@ -210,7 +209,13 @@
     </div> -->
 </div>
 
-</body>
+<script>
+    darkStates = {{dark_states | json_encode() | safe}};
+    lightStates = {{light_states | json_encode() | safe}};
+    stateMap = {{state_map | json_encode() | safe}};
+</script>
 <script src="/assets/odometer.js?z=1"></script>
-<script src="/assets/index.js?z=7"></script>
+<script src="/assets/index.js?z=9"></script>
 <script src="/assets/search.js?z=1" defer></script>
+
+</body>

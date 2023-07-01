@@ -9,7 +9,15 @@ var audioSystem = {
 
 var block = ["r/gtafk","r/bi_irl", "r/suddenlybi", "r/ennnnnnnnnnnnbbbbbby", "r/feemagers", "r/BrexitAteMyFace", "r/emoney", "r/Inzaghi"];
 
-var blackedOutStates = ["PRIVATE", "RESTRICTED", "OLIVER", "ARCHIVED"];
+function stateIsDark(state) {
+    // The darkStates array is included in the html directly via server side rendering and updated via status message.
+    return darkStates.includes(state);
+}
+
+function stateIsLight(state) {
+    // The lightStates array is included in the html directly via server side rendering and updated via status message.
+    return lightStates.includes(state);
+}
 
 document.getElementById("enable_sounds").addEventListener("click", function () {
     if (!audioSystem.playAudio) {
@@ -51,19 +59,11 @@ function newStatusUpdate(text, callback = null, _classes = []) {
 }
 
 function mapState(state) {
-    switch (state) {
-        case "PUBLIC":
-            return "public";
-        case "PRIVATE":
-            return "private";
-        case "RESTRICTED":
-            return "restricted";
-        case "ARCHIVED":
-            return "archived";
-        case "OLIVER":
-            return "oliver";
-        default:
-            return "unknown";
+    // The stateMap is included in the html directly via server side rendering and updated via status message.
+    if (state in stateMap) {
+        return stateMap[state];
+    } else {
+        return "unknown";
     }
 }
 
@@ -84,7 +84,6 @@ function updateStatusText() {
     document.getElementById("lc-total").innerText = totalSubs;
 
     var percentage = ((totalDarkSubs / totalSubs) * 100).toFixed(2);
-    var percentage = ((totalDarkSubs / totalSubs) * 100).toFixed(2);
     od_percentage.update(percentage);
     od_togo.update(totalSubs - totalDarkSubs);
     document.getElementById("progress-bar").style = `width: ${percentage}%`;
@@ -92,18 +91,15 @@ function updateStatusText() {
 
 
 function handleStateUpdate(message) {
+    darkStates = message["dark_states"];
+    lightStates = message["light_states"];
+    stateMap = message["state_map"];
+
     totalSubs = message["subreddits"].length;
     totalDarkSubs = 0;
     for (subreddit of message["subreddits"]) {
-        switch (subreddit["state"]) {
-            case "PRIVATE":
-            case "RESTRICTED":
-            case "ARCHIVED":
-            case "OLIVER":
-                totalDarkSubs += 1;
-                break;
-            default:
-                break;
+        if (stateIsDark(subreddit["state"])) {
+            totalDarkSubs += 1;
         }
     }
 
@@ -133,7 +129,7 @@ function handleDeltaUpdate(message) {
     }
 
     // True if swapped between PRIVATE and RESTRICTED, false if not
-    var swapped = (blackedOutStates.includes(message["state"]) && blackedOutStates.includes(message["previous_state"]));
+    var swapped = stateIsDark(message["state"]) && stateIsDark(message["previous_state"]);
     var text = `<strong>${message["name"]}</strong> ${swapped ? 'swapped to' : 'has gone'} ${mapState(message["state"])}! (${message["section"]})`;
 
     // Send out status update for people not in large counter mode.
@@ -144,34 +140,25 @@ function handleDeltaUpdate(message) {
     // Update state in current view if present.
     if (document.getElementById(message["name"]) != null) {
         document.getElementById(message["name"]).querySelector("p").innerHTML = mapState(message["state"]);
-        for (i of ["private", "public", "restricted", "unknown"]) {
+        for (i of Object.values(stateMap)) {
             document.getElementById(message["name"]).classList.remove(`subreddit-${i}`)
         }
         document.getElementById(message["name"]).classList.add(`subreddit-${mapState(message["state"])}`)
     }
 
-    switch (message["state"]) {
-        case "PRIVATE":
-        case "RESTRICTED":
-        case "ARCHIVED":
-        case "OLIVER":
-            audioSystem.play("privated");
-            switch (subreddit["previous_state"]) {
-                case "PUBLIC":
-                case "UNKNOWN":
-                case "ARCHIVED":
-                case "OLIVER":
-                    totalDarkSubs += 1;
-                    break;
-                default:
-                    break;
-            }
-            break;
-        default:
-            audioSystem.play("public");
-            totalDarkSubs -= 1;
-            break
+    if (stateIsDark(message["state"])) {
+        audioSystem.play("privated");
+        if (!stateIsDark(subreddit["previous_state"])) {
+            totalDarkSubs += 1;
+        }
     }
+    if (stateIsLight(message["state"])) {
+        audioSystem.play("public");
+        if (!stateIsLight(subreddit["previous_state"])) {
+            totalDarkSubs -= 1;
+        }
+    }
+
     updateStatusText();
 
 
@@ -183,13 +170,8 @@ function handleDeltaUpdate(message) {
     }
     history_item.innerHTML = `<h1>${text}</h1><h3>${t}${last}</h3>`;
 
-    switch (message["state"]) {
-        case "PUBLIC":
-        case "UNKNOWN":
-            history_item.classList.add("history-item-online")
-            break;
-        default:
-            break;
+    if (stateIsLight(message["state"])) {
+        history_item.classList.add("history-item-online")
     }
     document.getElementById("counter-history").prepend(history_item);
     document.getElementById("counter-history").scrollTo({top: 0, behavior: 'smooth'});

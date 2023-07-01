@@ -12,8 +12,9 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::info;
+use strum::{EnumIter, IntoEnumIterator};
 
-#[derive(Clone, Debug, Copy, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Copy, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, EnumIter)]
 pub enum SubredditState {
     UNKNOWN,
     PRIVATE,
@@ -26,13 +27,40 @@ pub enum SubredditState {
 impl SubredditState {
     pub fn to_string(&self) -> String {
         match self {
-            SubredditState::UNKNOWN => "public".to_string(),
+            SubredditState::UNKNOWN => "unknown".to_string(),
             SubredditState::PRIVATE => "private".to_string(),
             SubredditState::PUBLIC => "public".to_string(),
             SubredditState::RESTRICTED => "restricted".to_string(),
             SubredditState::ARCHIVED => "archived".to_string(),
             SubredditState::OLIVER => "oliver".to_string(),
         }
+    }
+
+    pub fn is_dark(&self) -> bool {
+        match self {
+            SubredditState::UNKNOWN => false,
+            SubredditState::PRIVATE => true,
+            SubredditState::PUBLIC => false,
+            SubredditState::ARCHIVED => true,
+            SubredditState::OLIVER => true,
+            SubredditState::RESTRICTED => true,
+        }
+    }
+
+    pub fn is_light(&self) -> bool {
+        !self.is_dark()
+    }
+
+    pub fn dark_states() -> Vec<SubredditState> {
+        Self::iter().filter(|e| e.is_dark()).collect()
+    }
+
+    pub fn light_states() -> Vec<SubredditState> {
+        Self::iter().filter(|e| e.is_light()).collect()
+    }
+
+    pub fn state_map() -> BTreeMap<SubredditState, String> {
+        Self::iter().map(|e| (e, e.to_string())).collect()
     }
 }
 
@@ -60,17 +88,6 @@ pub struct Subreddit {
 impl Subreddit {
     pub fn safe_name(&self) -> String {
         self.name.replace(|c: char| !c.is_alphanumeric(), "_").to_string()
-    }
-
-    pub fn is_private(&self) -> bool {
-        match self.state {
-            SubredditState::UNKNOWN => false,
-            SubredditState::PRIVATE => true,
-            SubredditState::PUBLIC => false,
-            SubredditState::ARCHIVED => true,
-            SubredditState::OLIVER => true,
-            SubredditState::RESTRICTED => true,
-        }
     }
 }
 

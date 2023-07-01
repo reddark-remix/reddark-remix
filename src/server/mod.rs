@@ -12,6 +12,7 @@ use tokio::sync::broadcast;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing::info;
+use crate::reddit::SubredditState;
 
 use crate::redis_helper::RedisHelper;
 use crate::server::model::PushMessage;
@@ -73,6 +74,9 @@ async fn start_periodic_job(redis_helper: RedisHelper, broadcast_channel: broadc
             let message = PushMessage::CurrentStateUpdate {
                 sections,
                 subreddits,
+                dark_states: SubredditState::dark_states(),
+                light_states: SubredditState::light_states(),
+                state_map: SubredditState::state_map(),
             };
             broadcast_channel.send(message)?;
         }

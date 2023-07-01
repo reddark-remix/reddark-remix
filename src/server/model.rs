@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use serde::{Serialize, Deserialize};
 use crate::reddit::{Subreddit, SubredditState};
 
@@ -7,6 +8,9 @@ pub enum PushMessage {
     CurrentStateUpdate {
         sections: Vec<String>,
         subreddits: Vec<Subreddit>,
+        dark_states: Vec<SubredditState>,
+        light_states: Vec<SubredditState>,
+        state_map: BTreeMap<SubredditState, String>,
     },
     Delta {
         name: String,

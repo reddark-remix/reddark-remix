@@ -7,7 +7,7 @@ use axum_template::TemplateEngine;
 use serde::Serialize;
 use tera::Tera;
 use tracing::error;
-use crate::reddit::SubredditDelta;
+use crate::reddit::{SubredditDelta, SubredditState};
 use crate::server::{AppEngine, AppState};
 
 #[derive(Serialize, Debug)]
@@ -24,6 +24,9 @@ struct Params {
     sections: Vec<String>,
     subreddits: BTreeMap<String, Vec<ParamSubreddit>>,
     history: Vec<SubredditDelta>,
+    dark_states: Vec<SubredditState>,
+    light_states: Vec<SubredditState>,
+    state_map: BTreeMap<SubredditState, String>,
 }
 
 pub async fn make_app_engine() -> anyhow::Result<AppEngine> {
@@ -36,7 +39,7 @@ pub async fn get_index(
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
     let subs = state.redis_helper.get_current_state().await.unwrap();
-    let dark_subs = subs.iter().filter(|s| s.is_private()).count();
+    let dark_subs = subs.iter().filter(|s| s.state.is_dark()).count();
     let total_subs = subs.len();
     let sections = state.redis_helper.get_sections().await.unwrap();
     let history = state.redis_helper.get_hist_delta().await.unwrap_or_else(|_| Vec::new());
@@ -45,6 +48,8 @@ pub async fn get_index(
         total_subs,
         dark_subs,
         history,
+        dark_states: SubredditState::dark_states(),
+        light_states: SubredditState::light_states(),
         sections: sections.clone(),
         subreddits: sections.into_iter()
             .map(|section| {
@@ -59,6 +64,7 @@ pub async fn get_index(
                 (section.clone(), fsubs)
             })
             .collect(),
+        state_map: SubredditState::state_map(),
     };
 
     let result = state.engine.render("index", params);
