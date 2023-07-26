@@ -1,6 +1,6 @@
 FROM rust:1.70-bookworm as builder
 RUN apt-get update \
-    && apt-get install -y openssl ca-certificates tini libssl3 libssl3-dev build-essential \
+    && apt-get install -y openssl ca-certificates tini libssl3 libssl-dev build-essential \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -11,7 +11,7 @@ RUN cargo build --release
 FROM debian:bookworm
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install -y openssl ca-certificates tini libssl3 \
+    && apt-get install -y openssl ca-certificates tini libssl3 libsqlite3-0 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
