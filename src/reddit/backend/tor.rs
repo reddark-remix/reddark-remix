@@ -16,10 +16,12 @@ use crate::reddit::backend::RedditRequestBackend;
 use tls_api::{TlsConnector as TlsConnectorTrait, TlsConnectorBuilder};
 use tls_api_openssl::TlsConnector;
 use tokio::sync::RwLock;
+use tracing::info;
 
 const REDDIT_TOR_HOST: &str = "www.reddittorjg6rue252oqsxryoxengawnmo46qy4kyii5wtqnwfj4ooad.onion";
 
 fn create_hyper_client_from_tor_client(tor_client: &TorClient<PreferredRuntime>) -> anyhow::Result<Client<ArtiHttpConnector<PreferredRuntime, TlsConnector>>> {
+    info!("Initializing new tor client...");
     let tls = TlsConnector::builder()
         .context("Unable to init OpenSSL Connector")?
         .build()

@@ -29,10 +29,10 @@ pub struct Cli {
     #[clap(long = "redis-url", short = 'r', default_value = "redis://127.0.0.1/")]
     redis_url: String,
 
-    #[clap(long = "reddit-backend", default_value = "direct")]
+    #[clap(long = "reddit-backend", default_value = "tor")]
     reddit_backend: RedditBackendSelector,
 
-    #[clap(long = "rate-limit", default_value = "0.5")]
+    #[clap(long = "rate-limit", default_value = "1")]
     rate_limit: f32,
 
     #[command(subcommand)]

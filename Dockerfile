@@ -1,4 +1,9 @@
 FROM rust:1.70-bookworm as builder
+RUN apt-get update \
+    && apt-get install -y openssl ca-certificates tini libssl3 libssl3-dev build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
 WORKDIR /app/src/reddark-remix/
 COPY ./ ./
 RUN cargo build --release
@@ -6,7 +11,7 @@ RUN cargo build --release
 FROM debian:bookworm
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install -y openssl ca-certificates tini \
+    && apt-get install -y openssl ca-certificates tini libssl3 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
