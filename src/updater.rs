@@ -3,11 +3,11 @@ use std::time::Duration;
 use itertools::Itertools;
 use tracing::{error, info};
 use crate::Cli;
-use crate::reddit::{Reddit, Subreddit, SubredditDelta, SubredditState};
+use crate::reddit::{Subreddit, SubredditDelta, SubredditState};
 use crate::redis_helper::RedisHelper;
 
-pub async fn updater(cli: &Cli, rate_limit: NonZeroU32, period: Option<NonZeroU32>) -> anyhow::Result<()> {
-    let reddit = Reddit::new(rate_limit);
+pub async fn updater(cli: &Cli, period: Option<NonZeroU32>) -> anyhow::Result<()> {
+    let reddit = cli.new_reddit_backend().await?;
     let redis_helper = RedisHelper::new(cli).await?;
 
     let mut timer = period.map(|p| tokio::time::interval(Duration::from_secs(p.get() as u64)));

@@ -1,18 +1,15 @@
 use std::collections::BTreeMap;
-use std::num::NonZeroU32;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
-use governor::{clock, Jitter, Quota, RateLimiter};
-use governor::middleware::NoOpMiddleware;
-use governor::state::{InMemoryState, NotKeyed};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::info;
 use strum::{EnumIter, IntoEnumIterator};
+use crate::reddit::backend::RedditRequestBackend;
+
+pub mod backend;
 
 #[derive(Clone, Debug, Copy, Ord, PartialOrd, PartialEq, Eq, Serialize, Deserialize, EnumIter)]
 pub enum SubredditState {
@@ -109,17 +106,13 @@ impl From<Subreddit> for SubredditDelta {
 }
 
 pub struct Reddit {
-    limiter: RateLimiter<NotKeyed, InMemoryState, clock::DefaultClock, NoOpMiddleware>,
+    backend: Box<dyn RedditRequestBackend>,
 }
 
 impl Reddit {
-    pub fn new(rate_limit: NonZeroU32) -> Arc<Self> {
-        info!("Initializing reddit with rate limit of {}!", rate_limit);
-        // NOTE: Hardcoding rate limit here because without that for some reason reddit starts banning?
-        // I don't know why passing 100 from cli is different from nonzero!(). But it is.
-        let limiter = RateLimiter::direct(Quota::per_second(rate_limit));
+    pub fn new(backend: Box<dyn RedditRequestBackend>) -> Arc<Self> {
         return Arc::new(Reddit {
-            limiter,
+            backend,
         });
     }
 
@@ -134,32 +127,9 @@ impl Reddit {
         Ok(data)
     }
 
-    async fn make_request<T: Serialize + Sized>(&self, rel_url: &str, query: Option<&[T]>) -> Result<reqwest::Response> {
-        self.limiter.until_ready_with_jitter(Jitter::up_to(Duration::from_millis(1))).await;
-        let client = reqwest::Client::builder();
-        let client = client.user_agent("Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/114.0");
-        let client = client.build()?;
-        let req = client.get(format!("https://old.reddit.com/{}", rel_url));
-        let req = if let Some(q) = query {
-            req.query(q)
-        } else {
-            req
-        };
-        let req = req.header("Range", "bytes=0-50");
-        //info!("Sending request! {req:?}");
-        let resp = req.send().await?;
-        if resp.status().is_success() || resp.status() == 403 || resp.status() == 404 {
-            Ok(resp)
-        } else {
-            let s = format!("{resp:?}");
-            Err(anyhow::anyhow!("Error querying reddit: {s} {}", resp.text().await?))
-        }
-    }
-
     pub async fn get_subreddit_state(&self, name: &str) -> Result<SubredditState> {
         let u = format!("{}/about.json", name);
-        let resp = self.make_request::<()>(&u, None).await?;
-        let data: serde_json::Value = resp.json().await?;
+        let data = self.backend.make_reddit_request(&u, None).await?;
         if let Some(reason) = data.get("reason") {
             let is_private = reason.as_str().unwrap_or("") == "private" || reason.as_str().unwrap_or("") == "banned";
             if is_private {
@@ -189,9 +159,8 @@ impl Reddit {
         if names.len() > 100 {
             return Err(anyhow::anyhow!("Too many names passed!"));
         }
-        let query = [("sr_name", names.iter().map(|n| n.to_string().trim_start_matches("r/").trim().to_string()).join(","))];
-        let resp = self.make_request("api/info.json", Some(&query)).await?;
-        let data: serde_json::Value = resp.json().await?;
+        let query = [("sr_name".to_string(), names.iter().map(|n| n.to_string().trim_start_matches("r/").trim().to_string()).join(","))];
+        let data = self.backend.make_reddit_request("api/info.json", Some(&query)).await?;
         let data = data
             .get("data")
             .ok_or_else(|| anyhow::anyhow!("No data element"))?
@@ -219,8 +188,7 @@ impl Reddit {
     }
 
     pub async fn fetch_subreddits(&self) -> Result<(Vec<String>, Vec<Subreddit>)> {
-        let resp = self.make_request::<()>("/r/ModCoord/wiki/index.json", None).await?;
-        let data: serde_json::Value = resp.json().await?;
+        let data = self.backend.make_reddit_request("/r/ModCoord/wiki/index.json", None).await?;
         let text = data.get("data").and_then(|v| v.get("content_md")).ok_or(anyhow::anyhow!("Couldn't get content_md!"))?;
         let text = text.as_str().ok_or(anyhow::anyhow!("Can't parse text"))?;
 
