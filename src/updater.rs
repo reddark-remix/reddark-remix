@@ -58,7 +58,7 @@ pub async fn updater(cli: &Cli, period: Option<NonZeroU32>) -> anyhow::Result<()
         for (n, h) in fns {
             let result = h.await?;
             if let Err(e) = result {
-                error!("Failed to update sub {n}: {e}");
+                error!("Request failed for {n}: {e}");
                 failed_subs += 1;
             }
         }
@@ -68,7 +68,7 @@ pub async fn updater(cli: &Cli, period: Option<NonZeroU32>) -> anyhow::Result<()
         let stop = std::time::Instant::now();
         let taken = stop.duration_since(start);
         let perc = (((total_subs - failed_subs) as f32) / (total_subs as f32)) * 100.0;
-        info!("Done! Update took {} seconds. {failed_subs} out of {total_subs} subs failed to fetch. Success rate is: {perc:.2}%", taken.as_secs_f32());
+        info!("Done! Update took {} seconds. {failed_subs} out of {total_subs} requests failed to fetch. Success rate is: {perc:.2}%", taken.as_secs_f32());
 
         if let Some(t) = timer.as_mut() {
             info!("Awaiting tick...");
